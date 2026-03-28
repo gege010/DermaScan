@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+venv/
+env/
+ENV/
+.conda/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# ML & Data Artifacts (Do not push large files to GitHub)
+data/
+*.keras
+*.h5
+*.hdf5
+mlruns/
+*.db
+*.tfrecord
+
+# Logs
+logs/
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
