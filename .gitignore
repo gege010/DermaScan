@@ -1,33 +1,44 @@
-# Byte-compiled / optimized / DLL files
+# ─── Python & Byte-compiled ───────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Environments
-.env
+# ─── Virtual Environments ─────────────────────────────────────────────────────
 venv/
 env/
 ENV/
 .conda/
 .venv/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# ─── Secrets & Configurations ─────────────────────────────────────────────────
+.env
+config/.env
 
-# ML & Data Artifacts (Do not push large files to GitHub)
+# ─── IDE & Editors (Penting untuk kolaborasi tim) ─────────────────────────────
+.vscode/
+.idea/
+
+# ─── Jupyter Notebook ─────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ─── Data & ML Artifacts ──────────────────────────────────────────────────────
 data/
+
+models/*.keras
+models/*.h5
+models/*.hdf5
 *.keras
 *.h5
-*.hdf5
-mlruns/
-*.db
 *.tfrecord
 
-# Logs
+# ─── Logs & Caches ────────────────────────────────────────────────────────────
 logs/
 *.log
+*.db
+mlruns/
+.pytest_cache/
 
-# OS generated files
+# ─── OS Generated Files ───────────────────────────────────────────────────────
 .DS_Store
 .DS_Store?
 ._*

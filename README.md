@@ -52,12 +52,12 @@ You will need two terminal windows to run the separated services.
 
 **Terminal 1 (Backend API):**
 ```bash
-uvicorn api.main:app --reload --port 8000
+uvicorn deployment.api.main:app --reload --port 8000
 ```
 
 **Terminal 2 (Frontend UI):**
 ```bash
-streamlit run streamlit_app/app.py
+streamlit run deployment.streamlit_app.app.py
 ```
 Open your browser and navigate to `http://localhost:8501`.
 
