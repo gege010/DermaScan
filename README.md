@@ -45,7 +45,7 @@ Generate the model weights and metadata by running the training script. This pip
 ```bash
 python -m model.train
 ```
-(Note: Ensure your dataset is properly prepared and located at the path specified in model/train.py before running this command. Alternatively, you can download my pre-trained weights from [Insert Link Here] and place them in the saved_model folder to skip training).
+(Note: Ensure your dataset is properly prepared and located at the path specified in model/train.py before running this command).
 
 ### 5. Start the Application
 You will need two terminal windows to run the separated services.

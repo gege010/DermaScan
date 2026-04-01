@@ -685,10 +685,10 @@ def page_model():
         st.markdown("### 🎯 Metrik Test Set")
         cols = st.columns(4)
         for col, (key, label) in zip(cols, [
-            ("accuracy", "Accuracy"),
-            ("f1_score", "F1 Score (Weighted)"),
-            ("precision", "Precision"),
-            ("recall", "Recall"),
+            ("test_accuracy", "Accuracy"),
+            ("test_f1_weighted", "F1 Score (Weighted)"),
+            ("test_precision_weighted", "Precision"),
+            ("test_recall_weighted", "Recall"),
         ]):
             val = metrics.get(key, 0)
             with col:
@@ -721,29 +721,18 @@ def page_model():
         st.write("")
 
     # Training plots
-    col_h, col_c = st.columns(2)
-    history_img = MODEL_DIR / "training_history.png"
-    cm_img      = MODEL_DIR / "confusion_matrix.png"
+    cm_img = MODEL_DIR / "confusion_matrix.png"
 
-    with col_h:
-        st.markdown("### 📉 Training History")
-        if history_img.exists():
-            st.image(str(history_img), width="stretch")
-        else:
-            st.info(
-                "File `training_history.png` belum tersedia.  \n"
-                "Jalankan `python model/train.py` untuk men-generate grafik ini."
-            )
-
-    with col_c:
-        st.markdown("### 🔲 Confusion Matrix")
-        if cm_img.exists():
+    st.markdown("### 🔲 Confusion Matrix")
+    if cm_img.exists():
+        col1, col2 = st.columns([1, 1]) 
+        with col1:
             st.image(str(cm_img), width="stretch")
-        else:
-            st.info(
-                "File `confusion_matrix.png` belum tersedia.  \n"
-                "Jalankan `python model/train.py` untuk men-generate grafik ini."
-            )
+    else:
+        st.info(
+            "File `confusion_matrix.png` belum tersedia.  \n"
+            "Jalankan notebook evaluasi untuk men-generate grafik ini."
+        )
 
     # Model architecture summary
     st.divider()
