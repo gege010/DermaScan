@@ -1,20 +1,26 @@
 """
-model/train.py
-──────────────
+src/train.py
+────────────
 DermaScan — 2-Phase EfficientNetB0 Training Script (Ultra-Lean Version)
 
-Usage:
-    python model/train.py
+Usage (dari root repo):
+    python src/train.py
 
 Outputs:
-    model/saved_model/skin_model_best.keras
-    model/saved_model/class_names.json
+    models/skin_model_best.keras
+    models/class_names.json
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+
+# Tambahkan direktori src ke sys.path agar utils bisa diimport
+SRC_DIR = Path(__file__).resolve().parent
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 import numpy as np
 import pandas as pd
@@ -43,8 +49,10 @@ EPOCHS_P1 = 20
 EPOCHS_P2 = 30
 UNFREEZE_TOP_N = 20
 
-DATA_CSV = Path("data/processed/combined_clean.csv")
-SAVE_DIR = Path("model/saved_model")
+# Path relatif terhadap root repo (satu level di atas src/)
+ROOT_DIR = SRC_DIR.parent
+DATA_CSV = ROOT_DIR / "data" / "processed" / "combined_clean.csv"
+SAVE_DIR = ROOT_DIR / "models"
 SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── Data Loading ─────────────────────────────────────────────────────────────
@@ -149,7 +157,7 @@ def get_callbacks(phase: int) -> list:
             verbose=1,
         ),
         ModelCheckpoint(
-            filepath=str(SAVE_DIR / f"best_phase{phase}.keras"),
+            filepath=str(SAVE_DIR / f"skin_model_phase{phase}.keras"),
             monitor="val_accuracy",
             save_best_only=True,
             verbose=1,
@@ -250,12 +258,12 @@ def main():
     # ── Evaluation ────────────────────────────────────────────────────────
     test_metrics = evaluate_model(model, test_gen_p2)
     
-    # Simpan metrik agar bisa dibaca oleh Streamlit
+    # Simpan metrik agar bisa dibaca oleh Streamlit dan deployment/api
     with open(SAVE_DIR / "evaluation_metrics.json", "w") as f:
         json.dump(test_metrics, f, indent=2)
 
     # ── Save Final Model ──────────────────────────────────────────────────
-    # Nama file disinkronkan agar langsung terbaca oleh api/main.py
+    # Nama file disinkronkan agar langsung terbaca oleh deployment/api/main.py
     final_path = str(SAVE_DIR / "skin_model_best.keras")
     model.save(final_path)
     logger.info(f"Model saved to {final_path}")

@@ -1,5 +1,5 @@
 """
-utils/tavily_search.py
+src/utils/tavily_search.py
 ─────────────────────────────────────────────────────────────────────────────
 Modul (OOP) untuk melakukan pencarian referensi web menggunakan Tavily API.
 Mengambil artikel medis, jurnal, atau produk perawatan kulit terkait.

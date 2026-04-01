@@ -1,6 +1,6 @@
 """
-utils/gradcam.py
-────────────────
+src/utils/gradcam.py
+────────────────────
 Gradient-weighted Class Activation Mapping (Grad-CAM) for EfficientNetB0.
 
 Grad-CAM uses the gradient of the predicted class score with respect to the

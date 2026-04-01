@@ -3,7 +3,13 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import sys
 from pathlib import Path
+
+# Tambahkan direktori src ke sys.path agar utils bisa diimport
+SRC_DIR = Path(__file__).resolve().parent
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 import numpy as np
 import tensorflow as tf
@@ -14,9 +20,10 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Jadikan default constant, tapi bisa di-override via argparse
-DEFAULT_MODEL_PATH = Path("model/saved_model/skin_model_best.keras") 
-DEFAULT_CLASS_NAMES_PATH = Path("model/saved_model/class_names.json") # Diubah ke class_names.json
+# Path default menunjuk ke folder models/ di root repo
+ROOT_DIR = SRC_DIR.parent
+DEFAULT_MODEL_PATH = ROOT_DIR / "models" / "skin_model_best.keras"
+DEFAULT_CLASS_NAMES_PATH = ROOT_DIR / "models" / "class_names.json"
 IMG_SIZE = (224, 224)
 
 
@@ -25,7 +32,7 @@ def load_artifacts(model_path: Path, class_names_path: Path) -> tuple[tf.keras.M
     if not model_path.exists():
         raise FileNotFoundError(
             f"Model not found at {model_path}. "
-            "Run `python model/train.py` first."
+            "Run `python src/train.py` first."
         )
     model = tf.keras.models.load_model(str(model_path))
     

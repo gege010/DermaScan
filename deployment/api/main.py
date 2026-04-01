@@ -1,6 +1,6 @@
 """
-api/main.py
-───────────
+deployment/api/main.py
+──────────────
 DermaScan FastAPI Backend
 
 Endpoints:
@@ -14,6 +14,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,20 +27,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel, Field
 
+# Tambahkan src/ ke sys.path agar utils dapat ditemukan
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent   # deployment/api -> deployment -> root
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 from utils.gradcam import GradCAM
 from utils.groq_analyzer import GroqAnalyzer
 from utils.logger import get_logger
 from utils.tavily_search import TavilySearch
 
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(ROOT_DIR / ".env")
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
 logger = get_logger(__name__)
 
-MODEL_PATH = Path("model/saved_model/skin_model_best.keras")
-CLASS_NAMES_PATH = Path("model/saved_model/class_names.json") 
+MODEL_PATH = ROOT_DIR / "models" / "skin_model_best.keras"
+CLASS_NAMES_PATH = ROOT_DIR / "models" / "class_names.json"
 IMG_SIZE = (224, 224)
 TOP_K = 3
 

@@ -1,5 +1,5 @@
 """
-utils/groq_analyzer.py
+src/utils/groq_analyzer.py
 ─────────────────────────────────────────────────────────────────────────────
 Modul (OOP) untuk mengirimkan hasil prediksi CNN ke Groq API (Llama 3)
 guna mendapatkan interpretasi medis awam yang sangat detail dan terstruktur.

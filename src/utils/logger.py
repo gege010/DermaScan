@@ -1,6 +1,6 @@
 """
-utils/logger.py
-───────────────
+src/utils/logger.py
+───────────────────
 Centralized structured logging for DermaScan.
 
 Usage:

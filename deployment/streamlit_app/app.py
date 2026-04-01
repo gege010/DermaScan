@@ -1,5 +1,5 @@
 """
-streamlit_app/app.py
+deployment/streamlit_app/app.py
 ────────────────────────────────────────────────────────────────────────────
 DermaScan — Skin Health Analyzer
 Streamlit frontend, stateless, compatible with FastAPI /predict schema v1.0.
@@ -32,7 +32,8 @@ st.set_page_config(
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 API_BASE   = os.getenv("API_BASE_URL", "http://localhost:8000")
-MODEL_DIR  = Path(__file__).resolve().parent.parent / "model" / "saved_model"
+# Root repo = 2 level di atas deployment/streamlit_app/app.py
+MODEL_DIR  = Path(__file__).resolve().parent.parent.parent / "models"
 MAX_FILE_MB = 10
 
 URGENCY_CONFIG: dict[str, dict[str, str]] = {
@@ -277,7 +278,7 @@ def _render_health_status():
             
     except Exception:
         st.error("❌ API tidak dapat dijangkau")
-        st.caption("Jalankan: `uvicorn api.main:app --port 8000`")
+        st.caption("Jalankan: `uvicorn deployment.api.main:app --port 8000`")
 
 
 # ─── Page: Analisis Kulit ─────────────────────────────────────────────────────
