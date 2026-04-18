@@ -50,6 +50,11 @@ CLASS_NAMES_PATH = ROOT_DIR / "models" / "class_names.json"
 IMG_SIZE = (224, 224)
 TOP_K = 3
 
+# Security: File validation
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_FILE_SIZE_MB = 10
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
 # Global model state (loaded once at startup)
 model: tf.keras.Model | None = None
 CLASS_NAMES: list[str] = []
@@ -125,11 +130,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS configuration - restrict origins in production
+# For local development, use localhost:8501; for production, specify exact domains
+ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:8501").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
 # ─── Response Schemas ─────────────────────────────────────────────────────────
@@ -160,11 +170,24 @@ class HealthResponse(BaseModel):
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def preprocess_image(image_bytes: bytes) -> tuple[np.ndarray, np.ndarray]:
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB").resize(IMG_SIZE)
-    arr = np.array(img, dtype=np.uint8)
-    # Pembagian / 255.0 agar model membaca rentang [0, 1]
-    model_input = np.expand_dims(arr.astype(np.float32) / 255.0, axis=0)
-    return model_input, arr
+    """
+    Validate and preprocess image bytes for model inference.
+    Returns normalized input array and original image array.
+    """
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        # Validate this is actually an image and can be opened
+        img.verify()
+        # Re-open after verify (verify() invalidates the image)
+        img = Image.open(io.BytesIO(image_bytes))
+        img = img.convert("RGB").resize(IMG_SIZE)
+        arr = np.array(img, dtype=np.uint8)
+        # Normalize to [0, 1] range for model
+        model_input = np.expand_dims(arr.astype(np.float32) / 255.0, axis=0)
+        return model_input, arr
+    except Exception as e:
+        logger.error(f"Image preprocessing failed: {e}")
+        raise ValueError(f"Invalid image format. Please upload a valid JPEG or PNG image.")
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
@@ -178,18 +201,29 @@ async def health():
     )
 
 @app.post("/predict", response_model=PredictionResponse, tags=["Prediction"])
-def predict(file: UploadFile = File(..., description="Skin image (JPEG or PNG)")):
+async def predict(file: UploadFile = File(..., description="Skin image (JPEG or PNG)")):
     """
     Analyze a skin image and return predictions, Grad-CAM, Groq analysis, and Tavily references.
     """
     if model is None or not CLASS_NAMES:
         raise HTTPException(status_code=503, detail="Model not loaded. Please retry later.")
 
-    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+    if file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported file type: {file.content_type}. Use JPEG or PNG.",
         )
+
+    # Validate file size - read in chunks to avoid memory issues
+    contents = await file.read(MAX_FILE_SIZE_BYTES + 1)
+    if len(contents) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE_MB}MB.",
+        )
+    # Reset file pointer for downstream consumption
+    file.file._file = io.BytesIO(contents)
+    file.file.seek(0)
 
     t0 = time.perf_counter()
 
