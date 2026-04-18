@@ -38,6 +38,9 @@ logs/
 mlruns/
 .pytest_cache/
 
+# ─── Docker (build cache leftovers — Dockerfiles & docker-compose are committed) ─
+.docker/
+
 # ─── OS Generated Files ───────────────────────────────────────────────────────
 .DS_Store
 .DS_Store?

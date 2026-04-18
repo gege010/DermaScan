@@ -1,0 +1,55 @@
+services:
+
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .          # project root — gives access to src/ and deployment/
+      dockerfile: deployment/api/Dockerfile
+    container_name: dermascan_api
+    restart: unless-stopped
+    env_file: .env        # inject GROQ_API_KEY, TAVILY_API_KEY, etc.
+    environment:
+      # Allow the Streamlit container to call the API
+      CORS_ALLOWED_ORIGINS: "http://localhost:8501,http://streamlit:8501"
+    volumes:
+      # Mount pre-trained model files at runtime (not baked into image)
+      - ./models:/app/models:ro
+      # Persist logs outside the container
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    networks:
+      - dermascan_net
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s   # give TF time to load the model
+      retries: 3
+
+  # ── Streamlit Frontend ───────────────────────────────────────────────────────
+  streamlit:
+    build:
+      context: .
+      dockerfile: deployment/streamlit_app/Dockerfile
+    container_name: dermascan_streamlit
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Service-discovery: reference the api service by its container name
+      API_BASE_URL: "http://api:8000"
+    volumes:
+      # Mount model metadata so "Model Performance" page stays up-to-date
+      - ./models:/app/models:ro
+    ports:
+      - "8501:8501"
+    networks:
+      - dermascan_net
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  dermascan_net:
+    driver: bridge

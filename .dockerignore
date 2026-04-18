@@ -1,0 +1,83 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyc
+
+# ─── Virtual Environments ─────────────────────────────────────────────────────
+venv/
+env/
+ENV/
+.venv/
+.conda/
+
+# ─── Secrets & Environment Files ──────────────────────────────────────────────
+# IMPORTANT: never bake API keys into an image
+.env
+*.env
+!.env.example          # keep the template in the image context if needed
+
+# ─── Model Weights (too large — mount at runtime via docker-compose volumes) ──
+models/*.keras
+models/*.h5
+models/*.hdf5
+models/*.pb
+models/saved_model/
+*.tfrecord
+*.ckpt
+*.ckpt.*
+
+# ─── Raw & Processed Dataset (never in image) ─────────────────────────────────
+data/
+
+# ─── Training / Experiment Artifacts ─────────────────────────────────────────
+notebooks/
+mlruns/
+*.mlflow
+
+# ─── Logs (mounted as volume at runtime) ──────────────────────────────────────
+logs/
+*.log
+
+# ─── IDE & OS Files ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# ─── Git ──────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+
+# ─── CI / Docs (not needed in image) ─────────────────────────────────────────
+README.md
+CHANGELOG.md
+*.md
+docs/
+
+# ─── Test & Dev ───────────────────────────────────────────────────────────────
+tests/
+test_*.py
+*_test.py
+.pytest_cache/
+coverage/
+.coverage
+htmlcov/
+
+# ─── Docker files themselves ───────────────────────────────────────────────────
+docker-compose*.yml
+docker-compose*.yaml
+Dockerfile*
+
+# ─── Jupyter Notebooks ────────────────────────────────────────────────────────
+*.ipynb
+.ipynb_checkpoints/
+
+# ─── Compiled C extensions ─────────────────────────────────────────────────────
+*.so
+*.pyd
