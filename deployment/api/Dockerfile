@@ -14,12 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # Install only the packages needed by the API (no Streamlit/Plotly/Pandas/Seaborn/Matplotlib)
-# We derive a slimmed requirements from the full file at build-time
 RUN pip install --upgrade pip && \
     pip install --prefix=/install/deps --no-cache-dir \
-        "tensorflow<2.11.0" \
-        "numpy<1.24.0" \
-        "protobuf==3.20.3" \
+        "tensorflow>=2.12.0" \
+        "numpy>=1.24.0" \
+        "scikit-learn>=1.3.0" \
         "Pillow>=10.0.0" \
         "opencv-python-headless>=4.8.0" \
         "fastapi>=0.111.0" \

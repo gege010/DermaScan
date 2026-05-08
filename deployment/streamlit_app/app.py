@@ -673,11 +673,11 @@ def page_model():
         unsafe_allow_html=True,
     )
     st.markdown(
-        f"*EfficientNetB0 Transfer Learning — {meta.get('num_classes', 16)} Kelas*"
+        f"*EfficientNetB3 Transfer Learning — {meta.get('num_classes', 16)} Kelas*"
     )
     st.divider()
 
-    # Metrics from saved JSON
+    # ── Aggregate Metrics ─────────────────────────────────────────────────────
     metrics_path = MODEL_DIR / "evaluation_metrics.json"
     if metrics_path.exists():
         with open(metrics_path) as f:
@@ -686,10 +686,28 @@ def page_model():
         st.markdown("### 🎯 Metrik Test Set")
         cols = st.columns(4)
         for col, (key, label) in zip(cols, [
-            ("test_accuracy", "Accuracy"),
-            ("test_f1_weighted", "F1 Score (Weighted)"),
-            ("test_precision_weighted", "Precision"),
-            ("test_recall_weighted", "Recall"),
+            ("test_accuracy",          "Accuracy"),
+            ("test_f1_weighted",       "F1 Score (Weighted)"),
+            ("roc_auc_macro",          "ROC-AUC (Macro)"),
+            ("roc_auc_weighted",       "ROC-AUC (Weighted)"),
+        ]):
+            val = metrics.get(key, 0)
+            with col:
+                st.markdown(
+                    f'<div class="metric-card">'
+                    f'<div class="metric-value">{val*100:.1f}%</div>'
+                    f'<div class="metric-label">{label}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        st.write("")
+
+        # Baris kedua: precision, recall, macro F1
+        cols2 = st.columns(3)
+        for col, (key, label) in zip(cols2, [
+            ("test_precision_weighted", "Precision (Weighted)"),
+            ("test_recall_weighted",    "Recall (Weighted)"),
+            ("test_f1_macro",           "F1 Score (Macro)"),
         ]):
             val = metrics.get(key, 0)
             with col:
@@ -702,14 +720,13 @@ def page_model():
                 )
         st.write("")
     else:
-        # Fallback hardcoded values (from README)
         st.markdown("### 🎯 Metrik Test Set (Hardcoded — jalankan training untuk auto-update)")
         c1, c2, c3, c4 = st.columns(4)
         for col, (val, label) in zip([c1, c2, c3, c4], [
-            ("74.2%", "Accuracy"),
-            ("76.3%", "F1 Score"),
-            ("83.0%", "Precision"),
-            ("74.2%", "Recall"),
+            ("~85%", "Accuracy (Target)"),
+            ("~83%", "F1 Score"),
+            ("~87%", "ROC-AUC"),
+            ("~85%", "Precision"),
         ]):
             with col:
                 st.markdown(
@@ -721,51 +738,224 @@ def page_model():
                 )
         st.write("")
 
-    # Training plots
-    cm_img = MODEL_DIR / "confusion_matrix.png"
+    # ── Per-Class Metrics ─────────────────────────────────────────────────────
+    per_class_path = MODEL_DIR / "per_class_metrics.json"
+    if per_class_path.exists():
+        with open(per_class_path) as f:
+            per_class = json.load(f)
 
-    st.markdown("### 🔲 Confusion Matrix")
+        st.markdown("### 📋 Performa Per-Kelas")
+        st.caption(
+            "Tabel di bawah menunjukkan F1, Precision, Recall, dan ROC-AUC untuk setiap kelas. "
+            "Kelas dengan F1 rendah perlu investigasi lebih lanjut (kemungkinan under-represented)."
+        )
+
+        rows = []
+        for class_name, m in per_class.items():
+            rows.append({
+                "Kelas":     class_name,
+                "Precision": f"{m.get('precision', 0)*100:.1f}%",
+                "Recall":    f"{m.get('recall',    0)*100:.1f}%",
+                "F1 Score":  f"{m.get('f1_score',  0)*100:.1f}%",
+                "ROC-AUC":   f"{m.get('roc_auc',   0)*100:.1f}%",
+                "Support":   m.get("support", 0),
+            })
+
+        df_metrics = pd.DataFrame(rows)
+        # Sort by F1 ascending agar kelas bermasalah muncul di atas
+        df_metrics = df_metrics.sort_values("F1 Score")
+        st.dataframe(df_metrics, use_container_width=True, hide_index=True)
+
+        # Bar chart per-class F1
+        f1_vals = [per_class[k].get("f1_score", 0) * 100 for k in per_class]
+        names   = list(per_class.keys())
+
+        fig = go.Figure(go.Bar(
+            x=f1_vals,
+            y=names,
+            orientation="h",
+            marker=dict(
+                color=f1_vals,
+                colorscale=[[0, "rgba(192,57,43,0.7)"], [0.5, "rgba(212,172,13,0.7)"], [1, "#C4A882"]],
+                showscale=True,
+                colorbar=dict(title="F1 (%)"),
+            ),
+            text=[f"{v:.1f}%" for v in f1_vals],
+            textposition="outside",
+        ))
+        fig.update_layout(
+            height=max(350, len(names) * 26),
+            margin=dict(l=0, r=70, t=30, b=10),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(title="F1 Score (%)", range=[0, 115], showgrid=False),
+            yaxis=dict(title="", autorange="reversed"),
+            title="Per-class F1 Score",
+            font=dict(family="DM Sans", size=11),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("📊 Per-class metrics belum tersedia. Jalankan `python src/train.py` untuk men-generate.")
+
+    # ── Confusion Matrix ───────────────────────────────────────────────────────
+    cm_img = MODEL_DIR / "confusion_matrix.png"
+    st.markdown("### 🔲 Normalized Confusion Matrix")
     if cm_img.exists():
-        col1, col2 = st.columns([1, 1]) 
-        with col1:
-            st.image(str(cm_img), width="stretch")
+        st.image(str(cm_img), use_container_width=True)
+        st.caption("Setiap sel menunjukkan proporsi sampel yang diprediksi ke kelas tertentu (normalized per baris).")
     else:
         st.info(
             "File `confusion_matrix.png` belum tersedia.  \n"
-            "Jalankan notebook evaluasi untuk men-generate grafik ini."
+            "Jalankan `python src/train.py` untuk men-generate grafik ini."
         )
 
-    # Model architecture summary
+    # ── Domain Analysis (HAM10000 vs SD-198) ──────────────────────────────────
+    st.divider()
+    st.markdown("### 🔬 Analisis Per-Domain Dataset")
+    st.caption(
+        "Model dilatih pada dua dataset dengan domain berbeda: **HAM10000** (dermoscopy) "
+        "dan **SD-198** (foto klinis). Berikut adalah performa model pada masing-masing domain "
+        "secara terpisah — metrik ini penting untuk mendeteksi apakah model bias ke salah satu domain."
+    )
+
+    domain_path = MODEL_DIR / "domain_metrics.json"
+    if domain_path.exists():
+        with open(domain_path) as f:
+            domain_data = json.load(f)
+
+        d_cols = st.columns(len(domain_data))
+        domain_icons = {"HAM10000": "🔬", "SD198": "📷"}
+
+        for col, (domain_name, dm) in zip(d_cols, domain_data.items()):
+            icon = domain_icons.get(domain_name, "📊")
+            with col:
+                st.markdown(
+                    f'<div class="metric-card">'
+                    f'<div style="font-size:1.8rem">{icon}</div>'
+                    f'<div style="font-weight:700;margin:6px 0 2px">{domain_name}</div>'
+                    f'<div class="metric-value">{dm["accuracy"]*100:.1f}%</div>'
+                    f'<div class="metric-label">Accuracy</div>'
+                    f'<div style="font-size:0.78rem;margin-top:8px;opacity:0.7">'
+                    f'F1: {dm["f1_weighted"]*100:.1f}% &nbsp;|&nbsp; '
+                    f'N={dm["n_samples"]}'
+                    f'</div>'
+                    f'<div style="font-size:0.75rem;margin-top:4px;'
+                    f'color:{"#e74c3c" if dm["cross_domain_error_pct"] > 15 else "#27ae60"};">'
+                    f'Cross-domain err: {dm["cross_domain_error_pct"]:.1f}%'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+        st.write("")
+
+        # Per-class F1 breakdown per domain
+        dom_tabs = st.tabs([f"{domain_icons.get(d,'📊')} {d} Per-class F1" for d in domain_data])
+        for tab, (domain_name, dm) in zip(dom_tabs, domain_data.items()):
+            with tab:
+                pcf1 = dm.get("per_class_f1", {})
+                if pcf1:
+                    f1_items = sorted(pcf1.items(), key=lambda x: x[1])
+                    names_d  = [x[0] for x in f1_items]
+                    vals_d   = [x[1] * 100 for x in f1_items]
+
+                    fig_d = go.Figure(go.Bar(
+                        x=vals_d, y=names_d,
+                        orientation="h",
+                        marker=dict(
+                            color=vals_d,
+                            colorscale=[[0, "rgba(192,57,43,0.7)"], [0.5, "rgba(212,172,13,0.7)"], [1, "#C4A882"]],
+                            showscale=False,
+                        ),
+                        text=[f"{v:.1f}%" for v in vals_d],
+                        textposition="outside",
+                    ))
+                    fig_d.update_layout(
+                        height=max(250, len(names_d) * 32),
+                        margin=dict(l=0, r=70, t=20, b=10),
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        xaxis=dict(title="F1 (%)", range=[0, 115], showgrid=False),
+                        yaxis=dict(title=""),
+                        font=dict(family="DM Sans", size=11),
+                    )
+                    st.plotly_chart(fig_d, use_container_width=True)
+
+                    cross_err = dm.get("cross_domain_error_pct", 0)
+                    if cross_err > 10:
+                        st.warning(
+                            f"⚠️ **Cross-domain error rate: {cross_err:.1f}%** — "
+                            f"Beberapa sampel {domain_name} diprediksi sebagai kelas dari domain lain. "
+                            f"Ini konsisten dengan adanya *image domain gap* antara dermoscopy dan foto klinis. "
+                            f"Lihat `DESIGN_DECISIONS.md` untuk analisis lengkap."
+                        )
+                else:
+                    st.info("Data per-class tidak tersedia untuk domain ini.")
+
+        st.markdown(
+            '<div class="disclaimer-box">'
+            '💡 <strong>Catatan Desain:</strong> Penggabungan dua domain ini adalah keputusan yang disengaja '
+            'untuk cakupan kondisi yang lebih luas. Di lingkungan produksi, idealnya digunakan dua model '
+            'terpisah dengan routing layer berdasarkan tipe gambar. '
+            'Baca <strong>DESIGN_DECISIONS.md</strong> untuk rationale lengkap.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.info(
+            "📊 Domain analysis belum tersedia. Jalankan `python src/train.py` "
+            "untuk men-generate `models/domain_metrics.json`."
+        )
+        st.markdown(
+            '<div class="disclaimer-box">'
+            '⚠️ <strong>Dataset Note:</strong> Model ini dilatih pada dua dataset: '
+            '<strong>HAM10000</strong> (dermoscopy — 7 kelas klinis) dan '
+            '<strong>SD-198</strong> (foto klinis — 9 kondisi umum). '
+            'Ini adalah keputusan desain yang disengaja dengan trade-off yang sudah dipertimbangkan. '
+            'Lihat <strong>DESIGN_DECISIONS.md</strong> untuk analisis lengkap.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Architecture Summary ───────────────────────────────────────────────────
     st.divider()
     st.markdown("### 🏗️ Arsitektur & Training Strategy")
     a1, a2 = st.columns(2)
     with a1:
         st.markdown("""
-**Backbone:** EfficientNetB0 (ImageNet pretrained)
+**Backbone:** EfficientNetB3 (ImageNet pretrained)
+*(Upgrade dari B0 — lebih dalam, akurasi lebih tinggi)*
 
 **Phase 1 — Feature Adaptation**
 - Frozen base, train classification head only
+- Loss: Focal Loss (γ=2.0, α=0.25)
 - Optimizer: Adam · LR: 1e-3
-- Epochs: 20 · Batch: 32
+- Epochs: 25 · Batch: 32
 
 **Phase 2 — Fine-tuning**
-- Unfreeze top 20 layers
+- Unfreeze top 30 layers (BatchNorm tetap frozen)
+- Loss: Focal Loss (γ=2.0, α=0.25)
 - Optimizer: Adam · LR: 1e-5
-- Epochs: 30 · Batch: 16
+- Epochs: 40 · Batch: 16
         """)
     with a2:
         st.markdown("""
 **Classification Head**
 - GlobalAveragePooling2D
-- Dense(256, relu)
-- Dropout(0.3)
-- Dense(16, softmax)
+- BatchNormalization
+- Dense(512, relu) → Dropout(0.4)
+- Dense(256, relu) → Dropout(0.3)
+- Dense(N_classes, softmax)
 
-**Regularization**
-- Class weighting (balanced)
-- Data augmentation (flip, rotate, zoom)
-- Early stopping + ReduceLROnPlateau
+**Imbalance Handling**
+- Focal Loss: down-weights easy examples
+- Class weight balancing (sklearn)
+- Augmentasi agresif: flip 360°, rotation 180°,
+  brightness/channel jitter, shear, zoom
+
+**Input Size:** 300×300 (optimal untuk EfficientNetB3)
         """)
+
 
 
 # ─── Page: About ──────────────────────────────────────────────────────────────

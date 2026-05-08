@@ -1,0 +1,14 @@
+# Model artifacts are git-ignored and generated locally by running:
+#   python src/train.py
+#
+# Expected files after training:
+#   skin_model_best.keras     — trained model weights (~30-150MB)
+#   class_names.json          — ordered list of class labels
+#   evaluation_metrics.json   — aggregate accuracy, F1, ROC-AUC
+#   per_class_metrics.json    — per-class F1, precision, recall, AUC
+#   domain_metrics.json       — HAM10000 vs SD-198 performance breakdown
+#   confusion_matrix.png      — normalized confusion matrix heatmap
+#
+# For Docker deployment, mount this directory as a read-only volume:
+#   volumes:
+#     - ./models:/app/models:ro

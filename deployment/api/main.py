@@ -47,7 +47,7 @@ logger = get_logger(__name__)
 
 MODEL_PATH = ROOT_DIR / "models" / "skin_model_best.keras"
 CLASS_NAMES_PATH = ROOT_DIR / "models" / "class_names.json"
-IMG_SIZE = (224, 224)
+IMG_SIZE = (300, 300)  # EfficientNetB3 optimal input size
 TOP_K = 3
 
 # Security: File validation
@@ -125,8 +125,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="DermaScan API",
-    description="AI-powered skin condition classifier using EfficientNetB0 + Groq LLM",
-    version="1.0.0",
+    description="AI-powered skin condition classifier using EfficientNetB3 + Focal Loss + Groq LLM",
+    version="2.0.0",
     lifespan=lifespan,
 )
 

@@ -14,7 +14,7 @@ ENV/
 .env
 config/.env
 
-# ─── IDE & Editors (Penting untuk kolaborasi tim) ─────────────────────────────
+# ─── IDE & Editors ─────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 
@@ -22,14 +22,21 @@ config/.env
 .ipynb_checkpoints/
 
 # ─── Data & ML Artifacts ──────────────────────────────────────────────────────
+# Raw & processed data — never commit to git
 data/
 
+# Model weights (besar, di-mount via Docker volume atau didownload saat deployment)
 models/*.keras
 models/*.h5
 models/*.hdf5
 *.keras
 *.h5
 *.tfrecord
+
+# Training output artifacts — di-generate oleh src/train.py, tidak perlu di-commit
+# Jalankan python src/train.py untuk men-generate kembali file-file ini
+models/*.json
+models/*.png
 
 # ─── Logs & Caches ────────────────────────────────────────────────────────────
 logs/
@@ -38,7 +45,7 @@ logs/
 mlruns/
 .pytest_cache/
 
-# ─── Docker (build cache leftovers — Dockerfiles & docker-compose are committed) ─
+# ─── Docker ───────────────────────────────────────────────────────────────────
 .docker/
 
 # ─── OS Generated Files ───────────────────────────────────────────────────────

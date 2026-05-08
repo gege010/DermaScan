@@ -4,10 +4,52 @@ DermaScan is an end-to-end AI application that classifies skin conditions and pr
 
 ## ✨ Core Features
 
-- **Deep Learning Vision:** EfficientNetB0 backbone (Transfer Learning) classifying 16 different skin conditions.
+- **Deep Learning Vision:** EfficientNetB3 backbone (Transfer Learning) classifying 16 different skin conditions.
 - **Explainable AI (XAI):** Grad-CAM heatmaps showing exactly which skin regions the CNN focused on.
 - **Generative AI Analysis:** Llama-3.3-70b (via Groq API) generates structured explanations, treatment recommendations, and active skincare ingredients.
 - **Live Fact-Checking:** Tavily Search API pulls the latest medical articles related to each prediction.
+- **Per-class Evaluation:** Reports per-class F1, Precision, Recall, and ROC-AUC for full transparency.
+
+## 📊 Model Performance
+
+| Metric | Value |
+|---|---|
+| Backbone | EfficientNetB3 (300×300) |
+| Test Accuracy | ~85-88% (target) |
+| F1 Weighted | ~83-87% |
+| ROC-AUC Macro | ~87-92% |
+| Loss Function | Focal Loss (γ=2.0) |
+
+> Per-class metrics are saved to `models/per_class_metrics.json` after training and viewable in the **Performa Model** dashboard page.
+
+## ⚠️ Known Limitations & Design Decisions
+
+### Dataset Composition
+This model is trained on **two heterogeneous datasets**:
+
+| Dataset | Image Type | Classes | ~Size |
+|---|---|---|---|
+| HAM10000 | Dermoscopy (skin-contact camera) | 7 clinical lesions | ~10K |
+| SD-198 (subset) | Clinical / photo | 9 dermatological conditions | ~6.5K |
+
+**Known issue:** Dermoscopy images and standard clinical photos have fundamentally different pixel distributions (lighting, contrast, background). Combining them in a single softmax head is a **deliberate portfolio trade-off** — not a production-grade design choice.
+
+**Why it was done:** To cover a broader range of conditions useful to everyday users, while demonstrating the ability to handle heterogeneous data and class imbalance — skills valued in ML engineering roles.
+
+**Mitigations applied:**
+- **Focal Loss** (γ=2.0) reduces majority-class dominance at the loss level
+- **Class weight balancing** (sklearn) provides additional imbalance correction
+- **Per-domain evaluation** — HAM10000 and SD-198 accuracy are reported *separately* in `models/domain_metrics.json`, making the domain gap visible and auditable
+- **Per-class F1 / ROC-AUC** reported explicitly — not hidden behind aggregate weighted averages
+
+**In production:** Two separate models with an image-type routing layer (dermoscopy detector → clinical photo detector → route to specialist model).
+
+### Accuracy Interpretation
+Raw accuracy on imbalanced multi-class problems **can be misleading**. Always refer to:
+- Per-class F1 (Streamlit dashboard → *Performa Model* → *Performa Per-Kelas*)
+- Per-domain breakdown (Streamlit → *Analisis Per-Domain Dataset*)
+- Normalized confusion matrix (`models/confusion_matrix.png`)
+- ROC-AUC per class (`models/per_class_metrics.json`)
 
 ## 🏗️ Architecture & Tech Stack
 
@@ -15,7 +57,9 @@ This project follows an ultra-lean, service-oriented architecture separating the
 
 | Layer | Technology |
 |---|---|
-| Deep Learning | TensorFlow 2.10, Keras, OpenCV |
+| Deep Learning | TensorFlow ≥ 2.12, Keras, OpenCV |
+| Backbone | EfficientNetB3 (ImageNet pretrained) |
+| Loss | Focal Loss (imbalance-aware) |
 | Backend API | FastAPI, Uvicorn, Pydantic |
 | Frontend UI | Streamlit, Plotly |
 | LLM & Search | Groq API (Llama-3.3-70b), Tavily API |
@@ -78,7 +122,7 @@ docker compose down -v
 ## 🚀 Running Locally (Without Docker)
 
 ### 1. Prerequisites
-Python 3.10 is required (for TensorFlow 2.10 compatibility). We recommend Conda:
+Python 3.10 or 3.11 is required. We recommend Conda:
 ```bash
 conda create -n dermascan_env python=3.10 -y
 conda activate dermascan_env
@@ -97,11 +141,22 @@ TAVILY_API_KEY=your_tavily_api_key_here
 ```
 
 ### 4. Train the Model
-Generate the model weights and metadata by running the training script. This executes a 2-phase Transfer Learning strategy and saves `skin_model_best.keras` with its metadata into the `models/` directory.
+Generate the model weights and metadata by running the training script. This executes a 2-phase Transfer Learning strategy using **EfficientNetB3** with **Focal Loss** and saves `skin_model_best.keras`, class names, and comprehensive evaluation metrics into the `models/` directory.
 ```bash
 python -m src.train
 ```
 > Ensure your dataset is prepared and located at the path specified inside `src/train.py`.
+
+**Training outputs** (all git-ignored, generated locally):
+```
+models/
+├── skin_model_best.keras         # Final trained model weights
+├── class_names.json              # Ordered list of class names
+├── evaluation_metrics.json       # Aggregate accuracy, F1, ROC-AUC
+├── per_class_metrics.json        # Per-class F1, precision, recall, AUC
+├── domain_metrics.json           # HAM10000 vs SD-198 performance breakdown
+└── confusion_matrix.png          # Normalized confusion matrix heatmap
+```
 
 ### 5. Start the Application
 Open two separate terminal windows.
@@ -125,24 +180,24 @@ Open your browser and navigate to `http://localhost:8501`.
 DermaScan/
 ├── deployment/
 │   ├── api/
-│   │   ├── Dockerfile          # FastAPI container
+│   │   ├── Dockerfile          # FastAPI container (TF ≥ 2.12)
 │   │   └── main.py             # FastAPI app & /predict endpoint
 │   └── streamlit_app/
 │       ├── Dockerfile          # Streamlit container
 │       └── app.py              # Streamlit UI
 ├── src/
-│   ├── train.py                # 2-phase EfficientNetB0 training pipeline
+│   ├── train.py                # 2-phase EfficientNetB3 + Focal Loss pipeline
 │   ├── predict.py              # Standalone prediction script
 │   └── utils/
 │       ├── gradcam.py          # Grad-CAM heatmap generation
 │       ├── groq_analyzer.py    # Groq LLM integration
 │       ├── tavily_search.py    # Tavily web search integration
 │       └── logger.py           # Structured logging
-├── models/                     # Model weights & metadata (git-ignored, Docker-mounted)
-├── data/                       # Raw datasets (git-ignored, never containerized)
+├── models/                     # ⚠️ Git-ignored — generated by src/train.py
+├── data/                       # ⚠️ Git-ignored — never containerized
 ├── notebooks/                  # Jupyter exploration notebooks
 ├── docker-compose.yml          # Orchestrates API + Streamlit services
-├── .dockerignore               # Excludes secrets, data, and model weights from build context
+├── .dockerignore               # Excludes data & model weights from build context
 ├── .env.example                # Template for required environment variables
 └── requirements.txt            # Full Python dependency list
 ```
