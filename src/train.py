@@ -408,18 +408,31 @@ def evaluate_per_domain(
 
     See: DESIGN_DECISIONS.md ADR-001
     """
-    # Build label → index mapping
+    # Pastikan input adalah numpy array — boolean indexing tidak bekerja di Python list
+    y_true = np.asarray(y_true, dtype=np.int64)
+    y_pred = np.asarray(y_pred, dtype=np.int64)
+
+    # Build label → index mapping (case-sensitive)
     class_to_idx = {name: i for i, name in enumerate(class_names)}
+    # Case-insensitive fallback: handle ketidaksesuaian kapital (Acne vs acne, Dry vs dry, dll)
+    class_to_idx_lower = {name.lower(): i for i, name in enumerate(class_names)}
+
+    def _resolve_class(c: str) -> int | None:
+        if c in class_to_idx:
+            return class_to_idx[c]
+        if c.lower() in class_to_idx_lower:
+            return class_to_idx_lower[c.lower()]
+        return None
 
     domain_results = {}
     for domain_name, domain_classes in [
         ("HAM10000", HAM10000_CLASSES),
         ("SD198", SD198_CLASSES),
     ]:
-        # Filter indices yang termasuk domain ini
+        # Filter indices yang termasuk domain ini (case-insensitive)
         domain_indices = [
-            class_to_idx[c] for c in domain_classes
-            if c in class_to_idx
+            idx for c in domain_classes
+            if (idx := _resolve_class(c)) is not None
         ]
 
         if not domain_indices:
@@ -436,8 +449,12 @@ def evaluate_per_domain(
         y_pred_dom = y_pred[mask]
 
         # Map ke local indices (0..N) untuk classification_report
-        local_names = [c for c in domain_classes if c in class_to_idx]
-        local_idx   = [class_to_idx[c] for c in local_names]
+        # Gunakan nama kelas aktual (dari dataset), bukan dari domain_classes set
+        local_names = [
+            class_names[idx] for c in domain_classes
+            if (idx := _resolve_class(c)) is not None
+        ]
+        local_idx   = [_resolve_class(c) for c in domain_classes if _resolve_class(c) is not None]
         idx_remap   = {orig: new for new, orig in enumerate(local_idx)}
 
         y_true_loc = np.array([idx_remap[i] for i in y_true_dom])
@@ -608,31 +625,37 @@ def main():
     # ── Evaluation ────────────────────────────────────────────────────────────
     overall_metrics, per_class_metrics = evaluate_model(model, test_gen_p2, class_names)
 
-    # Per-domain evaluation (HAM10000 vs SD-198 terpisah)
-    # Perlu re-run prediction untuk mendapatkan raw arrays
-    test_gen_p2.reset()
-    y_pred_probs_eval = model.predict(test_gen_p2, verbose=0)
-    y_pred_eval = np.argmax(y_pred_probs_eval, axis=1)
-    y_true_eval = test_gen_p2.classes
+    # ── Simpan model & metrik LEBIH DULU sebelum domain eval ─────────────────
+    # (domain eval bisa gagal, tapi model dan metrik utama harus tersimpan)
+    final_path = str(SAVE_DIR / "skin_model_best.keras")
+    model.save(final_path)
+    logger.info(f"Model saved to {final_path}")
 
-    domain_metrics = evaluate_per_domain(y_true_eval, y_pred_eval, class_names, per_class_metrics)
-
-    # Simpan metrik agar bisa dibaca oleh Streamlit
     with open(SAVE_DIR / "evaluation_metrics.json", "w") as f:
         json.dump(overall_metrics, f, indent=2)
 
     with open(SAVE_DIR / "per_class_metrics.json", "w") as f:
         json.dump(per_class_metrics, f, indent=2)
 
-    with open(SAVE_DIR / "domain_metrics.json", "w") as f:
-        json.dump(domain_metrics, f, indent=2)
+    logger.info("Core metrics saved.")
 
-    logger.info("Evaluation metrics saved.")
+    # ── Per-domain evaluation (HAM10000 vs SD-198) ────────────────────────────
+    # Dijalankan SETELAH save agar crash di sini tidak menghilangkan model
+    try:
+        test_gen_p2.reset()
+        y_pred_probs_eval = model.predict(test_gen_p2, verbose=0)
+        y_pred_eval = np.argmax(y_pred_probs_eval, axis=1)
+        y_true_eval = test_gen_p2.classes
 
-    # ── Save Final Model ───────────────────────────────────────────────────────
-    final_path = str(SAVE_DIR / "skin_model_best.keras")
-    model.save(final_path)
-    logger.info(f"Model saved to {final_path}")
+        domain_metrics = evaluate_per_domain(y_true_eval, y_pred_eval, class_names, per_class_metrics)
+
+        with open(SAVE_DIR / "domain_metrics.json", "w") as f:
+            json.dump(domain_metrics, f, indent=2)
+        logger.info("Domain metrics saved.")
+    except Exception as e:
+        logger.warning(f"Per-domain evaluation failed (non-fatal): {e}")
+        domain_metrics = {}
+
     logger.info("Training complete.")
 
     # ── Summary Report ────────────────────────────────────────────────────────

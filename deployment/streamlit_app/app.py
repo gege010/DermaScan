@@ -764,7 +764,7 @@ def page_model():
         df_metrics = pd.DataFrame(rows)
         # Sort by F1 ascending agar kelas bermasalah muncul di atas
         df_metrics = df_metrics.sort_values("F1 Score")
-        st.dataframe(df_metrics, use_container_width=True, hide_index=True)
+        st.dataframe(df_metrics, width='stretch', hide_index=True)
 
         # Bar chart per-class F1
         f1_vals = [per_class[k].get("f1_score", 0) * 100 for k in per_class]
@@ -793,7 +793,7 @@ def page_model():
             title="Per-class F1 Score",
             font=dict(family="DM Sans", size=11),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
         st.info("📊 Per-class metrics belum tersedia. Jalankan `python src/train.py` untuk men-generate.")
 
@@ -801,7 +801,7 @@ def page_model():
     cm_img = MODEL_DIR / "confusion_matrix.png"
     st.markdown("### 🔲 Normalized Confusion Matrix")
     if cm_img.exists():
-        st.image(str(cm_img), use_container_width=True)
+        st.image(str(cm_img), width='stretch')
         st.caption("Setiap sel menunjukkan proporsi sampel yang diprediksi ke kelas tertentu (normalized per baris).")
     else:
         st.info(
@@ -879,7 +879,7 @@ def page_model():
                         yaxis=dict(title=""),
                         font=dict(family="DM Sans", size=11),
                     )
-                    st.plotly_chart(fig_d, use_container_width=True)
+                    st.plotly_chart(fig_d, width='stretch')
 
                     cross_err = dm.get("cross_domain_error_pct", 0)
                     if cross_err > 10:

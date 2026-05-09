@@ -21,6 +21,11 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+# Model di-save dengan Keras 2 (format HDF5).
+# Set SEBELUM import tensorflow agar tf.keras API tetap kompatibel.
+os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")
+
 import tensorflow as tf
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,7 +50,12 @@ load_dotenv(ROOT_DIR / ".env")
 
 logger = get_logger(__name__)
 
-MODEL_PATH = ROOT_DIR / "models" / "skin_model_best.keras"
+# Kandidat model path — dicoba berurutan sampai ditemukan
+MODEL_CANDIDATES = [
+    ROOT_DIR / "models" / "skin_model_best.keras",
+    ROOT_DIR / "models" / "skin_model_phase2.keras",
+    ROOT_DIR / "models" / "skin_model_phase1.keras",
+]
 CLASS_NAMES_PATH = ROOT_DIR / "models" / "class_names.json"
 IMG_SIZE = (300, 300)  # EfficientNetB3 optimal input size
 TOP_K = 3
@@ -82,13 +92,31 @@ async def lifespan(app: FastAPI):
     global model, CLASS_NAMES, gradcam
 
     logger.info("Loading DermaScan model...")
+    # Cari model pertama yang tersedia
+    model_path = next((p for p in MODEL_CANDIDATES if p.exists()), None)
     try:
-        if not MODEL_PATH.exists():
-            logger.warning(f"Model file not found at {MODEL_PATH}.")
+        if model_path is None:
+            logger.warning(f"No model file found. Tried: {[p.name for p in MODEL_CANDIDATES]}")
         else:
-            model = tf.keras.models.load_model(str(MODEL_PATH))
+            logger.info(f"Loading from: {model_path.name}")
+            custom_objs = {}
+            # Coba import focal_loss untuk custom_objects (diperlukan untuk HDF5 format)
+            try:
+                from train import focal_loss
+                custom_objs = {"focal_loss": focal_loss(gamma=2.0, alpha=0.25)}
+            except Exception:
+                pass
+            try:
+                import tf_keras
+                model = tf_keras.models.load_model(
+                    str(model_path), custom_objects=custom_objs, compile=False
+                )
+            except (ImportError, Exception):
+                model = tf.keras.models.load_model(
+                    str(model_path), custom_objects=custom_objs, compile=False
+                )
             gradcam = GradCAM(model)
-            logger.info(f"Model loaded successfully. Input shape: {model.input_shape}")
+            logger.info(f"Model loaded. Input shape: {model.input_shape}")
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         model = None
@@ -176,18 +204,19 @@ def preprocess_image(image_bytes: bytes) -> tuple[np.ndarray, np.ndarray]:
     """
     try:
         img = Image.open(io.BytesIO(image_bytes))
-        # Validate this is actually an image and can be opened
         img.verify()
-        # Re-open after verify (verify() invalidates the image)
         img = Image.open(io.BytesIO(image_bytes))
         img = img.convert("RGB").resize(IMG_SIZE)
         arr = np.array(img, dtype=np.uint8)
-        # Normalize to [0, 1] range for model
-        model_input = np.expand_dims(arr.astype(np.float32) / 255.0, axis=0)
+        # Gunakan EfficientNet preprocessing (sama seperti saat training)
+        # preprocess_input: normalize ke range [-1, 1] (bukan /255)
+        model_input = tf.keras.applications.efficientnet.preprocess_input(
+            np.expand_dims(arr.astype(np.float32), axis=0)
+        )
         return model_input, arr
     except Exception as e:
         logger.error(f"Image preprocessing failed: {e}")
-        raise ValueError(f"Invalid image format. Please upload a valid JPEG or PNG image.")
+        raise ValueError("Invalid image format. Please upload a valid JPEG or PNG image.")
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
