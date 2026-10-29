@@ -1,0 +1,10 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["web/src"],
+  "locale": "id-ID",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Form", "Scrollbar", "Toast", "CRUD"],
+  "requiredCommands": ["typecheck", "e2e", "accessibility"],
+  "commands": {"typecheck": "npm --prefix web run typecheck", "e2e": "npm --prefix web test", "accessibility": "npm --prefix web test -- --grep accessibility"},
+  "evidence": {"crudFullFlow": "web/tests/app.spec.ts", "failurePaths": "tests/test_api.py"}
+}

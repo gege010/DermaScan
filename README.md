@@ -1,225 +1,121 @@
-# 🔬 DermaScan — AI-Powered Skin Analyzer
+# DermaScan
 
-DermaScan is an end-to-end AI application that classifies skin conditions and provides detailed, medical-style interpretations. It combines Convolutional Neural Networks (CNN) for image recognition with Large Language Models (LLM) for explainable insights.
+A web platform for understanding skin concerns through contextual image assessment, source-linked education, and a private skin journal.
 
-## ✨ Core Features
+**Status:** working software foundation for education and research. It is **not a clinically validated diagnostic or treatment service**. No reported accuracy is presented as a guarantee for real-world photos.
 
-- **Deep Learning Vision:** EfficientNetB3 backbone (Transfer Learning) classifying 16 different skin conditions.
-- **Explainable AI (XAI):** Grad-CAM heatmaps showing exactly which skin regions the CNN focused on.
-- **Generative AI Analysis:** Llama-3.3-70b (via Groq API) generates structured explanations, treatment recommendations, and active skincare ingredients.
-- **Live Fact-Checking:** Tavily Search API pulls the latest medical articles related to each prediction.
-- **Per-class Evaluation:** Reports per-class F1, Precision, Recall, and ROC-AUC for full transparency.
+## What changed in v3
 
-## 📊 Model Performance
+- React + TypeScript web interface replaces Streamlit: interactive anatomy, responsive analysis workflow, searchable education library, journal, and capability/privacy page.
+- FastAPI works without TensorFlow or external API keys. No image is sent to Groq, Tavily, or another external AI provider.
+- Serious symptom guidance takes precedence over image inference. Missing models, poor images, unsupported domains, and errors produce explicit outcomes rather than fabricated diagnoses.
+- Canonical RGB preprocessing, decoded-image validation, EXIF orientation, file/pixel limits, bounded inference concurrency, readiness, rate limits, and hardened same-origin proxy.
+- Session-only journal by default; optional browser persistence, edit, export, and confirmed deletion. No medical data is stored in Git or a server database.
+- Compact research pipeline: frozen EfficientNetB0 embeddings + linear classification, explicit group-disjoint splits and duplicate-content checks.
 
-> Results from training on ~16,000 images (HAM10000 + SD-198 subset), 2-phase fine-tuning.
+## Run locally
 
-| Metric | Value |
-|---|---|
-| Backbone | EfficientNetB3 (300×300) |
-| Test Accuracy | **85.6%** |
-| F1 Weighted | **85.1%** |
-| F1 Macro | 61.1% *(impacted by minority classes with <30 samples)* |
-| ROC-AUC Macro | **98.3%** |
-| ROC-AUC Weighted | **98.8%** |
-| Loss Function | Focal Loss (γ=2.0, α=0.25) |
-| Training Strategy | 2-phase: frozen base → fine-tune top 30 layers |
+Python 3.11 and Node.js 22.12+ (or Node 24 LTS).
 
-### Per-Domain Breakdown
-| Domain | Images | Accuracy | F1 Weighted | Cross-Domain Err |
-|---|---|---|---|---|
-| HAM10000 (dermoscopy) | ~1,002 test | **78.8%** | 78.0% | 0.0% |
-| SD-198 (clinical photo) | ~1,036 test | **92.2%** | 92.0% | 0.0% |
-
-> Full per-class metrics (F1, Precision, Recall, ROC-AUC per class) are viewable in the **Performa Model** dashboard page after training.
-
-## ⚠️ Known Limitations & Design Decisions
-
-### Dataset Composition
-This model is trained on **two heterogeneous datasets**:
-
-| Dataset | Image Type | Classes | ~Size |
-|---|---|---|---|
-| HAM10000 | Dermoscopy (skin-contact camera) | 7 clinical lesions | ~10K |
-| SD-198 (subset) | Clinical / photo | 9 dermatological conditions | ~6.5K |
-
-**Known issue:** Dermoscopy images and standard clinical photos have fundamentally different pixel distributions (lighting, contrast, background). Combining them in a single softmax head is a **deliberate portfolio trade-off** — not a production-grade design choice.
-
-**Why it was done:** To cover a broader range of conditions useful to everyday users, while demonstrating the ability to handle heterogeneous data and class imbalance — skills valued in ML engineering roles.
-
-**Mitigations applied:**
-- **Focal Loss** (γ=2.0) reduces majority-class dominance at the loss level
-- **Class weight balancing** (sklearn) provides additional imbalance correction
-- **Per-domain evaluation** — HAM10000 and SD-198 accuracy are reported *separately* in `models/domain_metrics.json`, making the domain gap visible and auditable
-- **Per-class F1 / ROC-AUC** reported explicitly — not hidden behind aggregate weighted averages
-
-**In production:** Two separate models with an image-type routing layer (dermoscopy detector → clinical photo detector → route to specialist model).
-
-### Accuracy Interpretation
-Raw accuracy on imbalanced multi-class problems **can be misleading**. Always refer to:
-- Per-class F1 (Streamlit dashboard → *Performa Model* → *Performa Per-Kelas*)
-- Per-domain breakdown (Streamlit → *Analisis Per-Domain Dataset*)
-- Normalized confusion matrix (`models/confusion_matrix.png`)
-- ROC-AUC per class (`models/per_class_metrics.json`)
-
-## 🏗️ Architecture & Tech Stack
-
-This project follows an ultra-lean, service-oriented architecture separating the ML inference engine from the UI.
-
-| Layer | Technology |
-|---|---|
-| Deep Learning | TensorFlow ≥ 2.12, Keras, OpenCV |
-| Backbone | EfficientNetB3 (ImageNet pretrained) |
-| Loss | Focal Loss (imbalance-aware) |
-| Backend API | FastAPI, Uvicorn, Pydantic |
-| Frontend UI | Streamlit, Plotly |
-| LLM & Search | Groq API (Llama-3.3-70b), Tavily API |
-| Containerization | Docker, Docker Compose |
-
-## 🐳 Running with Docker (Recommended)
-
-### Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-- A trained model file (`models/skin_model_best.keras`) and its metadata (`models/class_names.json`) — see [Training the Model](#4-train-the-model) below
-
-### 1. Configure Environment Variables
-Copy the example file and fill in your API keys:
-```bash
-cp .env.example .env
-```
-Edit `.env`:
-```env
-GROQ_API_KEY=your_groq_api_key_here
-TAVILY_API_KEY=your_tavily_api_key_here
+```powershell
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements-dev.txt
+.venv/Scripts/python -m uvicorn deployment.api.main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
-### 2. Build & Start All Services
-```bash
+In a second terminal:
+
+```powershell
+cd web
+npm ci
+npm run dev
+```
+
+Open [the web app](http://127.0.0.1:5173). Vite proxies `/api` to the local API. No `.env` is required in education mode. Optional settings are documented in `.env.example`. Existing Groq/Tavily keys are not used by v3. Self-hosted fonts; no CDN dependency at runtime.
+
+On macOS/Linux use `.venv/bin/python` instead of `.venv/Scripts/python`.
+
+## Containers
+
+```sh
 docker compose up --build
 ```
-> On first build, Docker will pull the base image and install all dependencies — this can take a few minutes. Subsequent builds are fast thanks to layer caching.
 
-### 3. Access the Application
-| Service | URL |
-|---|---|
-| Streamlit Frontend | http://localhost:8501 |
-| FastAPI Backend | http://localhost:8000 |
-| Swagger API Docs | http://localhost:8000/docs |
+Open [DermaScan](http://localhost:8080). Only the web proxy is exposed, bound to loopback. The API remains on the private Compose network. Both containers use non-root users, read-only filesystems, bounded temporary filesystems and health checks. Uploads are transient, including framework multipart buffers. The default image intentionally excludes TensorFlow; do not turn model flags on without installing a compatible ML runtime.
 
-### Useful Docker Commands
-```bash
-# Run in background (detached mode)
-docker compose up -d
+Before Internet deployment, terminate TLS at a trusted ingress, preserve request size/rate/time limits and security headers, configure resource limits and monitoring, and follow [deployment notes](docs/DEPLOYMENT.md). Do not expose the API port directly. The Compose configuration is a local deployment baseline, not a claim that public medical-launch gates have passed.
 
-# View live logs
-docker compose logs -f
+## Optional image research
 
-# View logs of a specific service
-docker compose logs -f api
-docker compose logs -f streamlit
+### Existing 16-class model
 
-# Stop all services
-docker compose down
+The old HDF5 artifact named `skin_model_best.keras` is retained locally and ignored by Git. Enable only in a dedicated local research environment:
 
-# Rebuild images after code changes
-docker compose up --build
-
-# Remove containers, networks, and volumes
-docker compose down -v
+```powershell
+.venv/Scripts/python -m pip install -r requirements-ml.txt
+.venv/Scripts/python -m pip install tf-keras==2.20.1
+$env:ENABLE_LEGACY_MODEL = 'true'
+.venv/Scripts/python -m uvicorn deployment.api.main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
----
+Keep the original ordered `class_names.json` beside the model. Keras 2 HDF5 loading may require `tf-keras`; the loader falls back explicitly. Startup failure is reported as model-unavailable mode. This model mixes dermoscopic and clinical images and has known split, class balance and domain limitations. Raw scores are available only as **research scores**, not diagnosis probabilities. Domain mismatch is not repaired by renormalizing scores. There is no validated skin/non-skin detector, OOD guarantee, or clinical confidence threshold.
 
-## 🚀 Running Locally (Without Docker)
+### Less training data: frozen embeddings
 
-### 1. Prerequisites
-Python 3.10 or 3.11 is required. We recommend Conda:
-```bash
-conda create -n dermascan_env python=3.10 -y
-conda activate dermascan_env
+Prepare a curated CSV with **real** patient/lesion group identifiers and fixed partitions:
+
+```csv
+image_path,label,group_id,split
+photos/a.jpg,acne,patient-a,train
+photos/b.jpg,acne,patient-b,val
+photos/c.jpg,acne,patient-c,test
 ```
 
-### 2. Install Dependencies
-```bash
-pip install -r requirements.txt
+Every partition must contain the same two or more classes. Paths are relative to the CSV. Never invent per-image patient identifiers to make checks pass. Complete manifests must be deduplicated; perceptual duplicates and source authenticity still require review.
+
+```sh
+python -m scripts.train_compact --csv data/curated.csv --domain clinical --max-per-class 50 --output models/compact
 ```
 
-### 3. Environment Variables
-Create a `.env` file in the root directory:
-```env
-GROQ_API_KEY=your_groq_api_key_here
-TAVILY_API_KEY=your_tavily_api_key_here
+ImageNet backbone weights may download during training. `--max-per-class` caps only training data; validation/test sets stay untouched. Validation selects regularization; the held-out test is evaluated once. No clinical improvement is claimed until measured on representative external data. The output includes backbone, classifier, manifest and evaluation. Point `MODEL_DIR` at the operator-controlled output directory to load it. Joblib files are trusted code artifacts; never accept them from end users.
+
+Original notebooks, `src/train.py` and `scripts/run_domain_eval.py` are retained as **historical experiments**, not the v3 deployment pipeline. Their old image-level split does not establish lesion-disjoint performance. See [model card](docs/MODEL_CARD.md).
+
+For an optional real-artifact compatibility check, run `python -m scripts.smoke_legacy_model` in the ML environment. It uses only a synthetic checker pattern to verify loading, shape, pixel range and finite model outputs; it does not evaluate medical accuracy.
+
+## Verify
+
+```powershell
+.venv/Scripts/python -m pytest -q
+.venv/Scripts/python -m pip check
+cd web
+npm run format:check
+npm run build
+npx playwright install chromium
+npm test
 ```
 
-### 4. Train the Model
-Generate the model weights and metadata by running the training script. This executes a 2-phase Transfer Learning strategy using **EfficientNetB3** with **Focal Loss** and saves `skin_model_best.keras`, class names, and comprehensive evaluation metrics into the `models/` directory.
-```bash
-python -m src.train
-```
-> Ensure your dataset is prepared and located at the path specified inside `src/train.py`.
+Browser tests cover desktop and phone layouts, axe accessibility checks, layer interaction, search/filter recovery, consent, emergency guidance, analysis failure, journal create/edit/delete/export, opt-in persistence, focus restoration, and reduced motion. API tests use synthetic images and cover upload validation, missing model, unsafe-label escalation, invalid inputs, consent, rate limits, and group leakage. They do not establish clinical accuracy.
 
-**Training outputs** (all git-ignored, generated locally):
-```
-models/
-├── skin_model_best.keras         # Final trained model weights
-├── class_names.json              # Ordered list of class names
-├── evaluation_metrics.json       # Aggregate accuracy, F1, ROC-AUC
-├── per_class_metrics.json        # Per-class F1, precision, recall, AUC
-├── domain_metrics.json           # HAM10000 vs SD-198 performance breakdown
-└── confusion_matrix.png          # Normalized confusion matrix heatmap
-```
+CI runs API and web checks. [Verification notes](docs/VERIFICATION.md) distinguish executed checks from remaining release gates.
 
-> **Tip:** If training crashes before generating the JSON artifacts (e.g. after adding new code), you can regenerate them without retraining:
-> ```bash
-> python scripts/run_domain_eval.py
-> ```
+## Structure
 
-### 5. Start the Application
-Open two separate terminal windows.
-
-**Terminal 1 — Backend API:**
-```bash
-uvicorn deployment.api.main:app --reload --port 8000
+```text
+web/                   React UI, shared primitives, browser tests
+content/education.json Source-linked education shared by API and UI
+src/dermascan/         Image contract, assessment policy, model adapter
+deployment/api/       FastAPI application
+deployment/web/       Hardened same-origin reverse proxy
+scripts/train_compact.py  Group-aware, small-data research training
+tests/                 API/image/manifest tests
+docs/                  Model card, deployment and verification
 ```
 
-**Terminal 2 — Frontend UI:**
-```bash
-streamlit run deployment/streamlit_app/app.py
-```
-Open your browser and navigate to `http://localhost:8501`.
+Product and design decisions: [PRODUCT.md](PRODUCT.md), [DESIGN.md](DESIGN.md), [UX-CONTRACT.md](UX-CONTRACT.md).
 
----
+## Clinical and privacy boundaries
 
-## 📁 Project Structure
+For adult education. No diagnosis, medication prescription, severity scoring, or cure claim. Severe symptoms require direct medical attention; a negative or unavailable image result must never delay care. Educational summaries have source links but are not yet reviewed by a DermaScan clinician. No cloud journal storage, account system, or monitoring by doctors. Browser notes are not separately encrypted and can be read by other users of the same browser.
 
-```
-DermaScan/
-├── deployment/
-│   ├── api/
-│   │   ├── Dockerfile          # FastAPI container (TF ≥ 2.12)
-│   │   └── main.py             # FastAPI app & /predict endpoint
-│   └── streamlit_app/
-│       ├── Dockerfile          # Streamlit container
-│       └── app.py              # Streamlit UI
-├── src/
-│   ├── train.py                # 2-phase EfficientNetB3 + Focal Loss pipeline
-│   ├── predict.py              # Standalone prediction script
-│   └── utils/
-│       ├── gradcam.py          # Grad-CAM heatmap generation
-│       ├── groq_analyzer.py    # Groq LLM integration
-│       ├── tavily_search.py    # Tavily web search integration
-│       └── logger.py           # Structured logging
-├── scripts/
-│   └── run_domain_eval.py      # Regenerate all model artifacts without retraining
-├── models/                     # ⚠️ Git-ignored — generated by src/train.py
-├── data/                       # ⚠️ Git-ignored — never containerized
-├── notebooks/                  # Jupyter exploration notebooks
-├── docker-compose.yml          # Orchestrates API + Streamlit services
-├── .dockerignore               # Excludes data & model weights from build context
-├── .env.example                # Template for required environment variables
-└── requirements.txt            # Full Python dependency list
-```
-
----
-
-*Disclaimer: This application is built strictly for Machine Learning portfolio and research purposes. It is not a substitute for professional medical diagnosis. Always consult a certified Dermatologist for skin health concerns.*
+See [AAD skin care basics](https://www.aad.org/public/everyday-care/skin-care-basics), [NHS serious skin reactions](https://www.nhs.uk/conditions/stevens-johnson-syndrome/), and [the project model card](docs/MODEL_CARD.md).

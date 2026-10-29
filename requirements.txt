@@ -1,32 +1,9 @@
-# ─── Core ML ──────────────────────────────────────────────────────────────────
-# TF 2.12+ kompatibel dengan CUDA modern dan Python 3.10/3.11.
-# Menghapus batasan <2.11.0 yang tidak perlu dan membatasi modern tools.
-tensorflow>=2.12.0
-numpy>=1.24.0
-scikit-learn>=1.3.0
-Pillow>=10.0.0
-
-# ─── Explainability ───────────────────────────────────────────────────────────
-opencv-python-headless>=4.8.0
-
-# ─── Backend API ──────────────────────────────────────────────────────────────
-fastapi>=0.111.0
-uvicorn[standard]>=0.29.0
-python-multipart>=0.0.9
-pydantic>=2.7.0
-
-# ─── AI Integration ───────────────────────────────────────────────────────────
-groq>=0.9.0
-tavily-python>=0.3.0
-
-# ─── Frontend ─────────────────────────────────────────────────────────────────
-streamlit>=1.35.0
-plotly>=5.22.0
-
-# ─── Data Engineering & Visualization ────────────────────────────────────────
-pandas>=2.1.0
-seaborn>=0.13.0
-matplotlib>=3.8.0
-
-# ─── Environment & Config ─────────────────────────────────────────────────────
-python-dotenv>=1.0.0
+# API and image validation. TensorFlow is optional; see requirements-ml.txt.
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+pydantic==2.14.1
+Pillow==13.0.0
+numpy==2.2.6
+python-dotenv==1.2.4
+starlette==1.10.0

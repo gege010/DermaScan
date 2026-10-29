@@ -1,0 +1,158 @@
+[
+  {
+    "id": "skin-barrier",
+    "category": "Dasar perawatan",
+    "title": "Kenali pelindung alami kulitmu.",
+    "excerpt": "Mengapa rutinitas yang lebih sederhana sering menjadi awal yang baik.",
+    "minutes": 4,
+    "art": "barrier",
+    "source": {
+      "title": "American Academy of Dermatology",
+      "url": "https://www.aad.org/public/everyday-care/skin-care-basics/care/skin-care-budget"
+    },
+    "sections": [
+      {
+        "title": "Kulit tidak selalu membutuhkan lebih banyak produk",
+        "body": "Pembersih, pelembap, dan perlindungan matahari dapat menjadi dasar rutinitas. Menambahkan banyak produk sekaligus membuat pemicu iritasi lebih sulit dikenali."
+      },
+      {
+        "title": "Perhatikan respons kulit",
+        "body": "Gunakan pembersih lembut dan pilih produk yang sesuai dengan kebutuhan kulit. Hentikan produk baru jika muncul iritasi. Jangan mencoba mengatasi rasa perih dengan menambahkan bahan aktif lain."
+      },
+      {
+        "title": "Kapan mencari bantuan",
+        "body": "Keluhan yang menetap, memburuk, atau mengganggu aktivitas perlu dibicarakan dengan dokter. Edukasi umum tidak dapat menentukan penyebab ruam atau menggantikan pemeriksaan."
+      }
+    ]
+  },
+  {
+    "id": "sun-protection",
+    "category": "Kebiasaan harian",
+    "title": "Perlindungan matahari, setiap hari.",
+    "excerpt": "Bukan hanya soal sunscreen. Bangun kebiasaan yang bisa kamu pertahankan.",
+    "minutes": 3,
+    "art": "sun",
+    "source": {
+      "title": "American Academy of Dermatology",
+      "url": "https://www.aad.org/public/everyday-care/skin-care-basics/care/skin-care-in-your-20s"
+    },
+    "sections": [
+      {
+        "title": "Gabungkan beberapa bentuk perlindungan",
+        "body": "Cari tempat teduh dan gunakan pakaian pelindung. AAD menyarankan sunscreen spektrum luas, tahan air, dengan SPF 30 atau lebih untuk rutinitas dewasa."
+      },
+      {
+        "title": "Ikuti petunjuk pemakaian",
+        "body": "Gunakan dan aplikasikan ulang sunscreen sesuai petunjuk produk, terutama saat berada di luar ruangan, berenang, atau berkeringat."
+      },
+      {
+        "title": "Sesuaikan dengan kebutuhan",
+        "body": "Panduan ini ditujukan untuk perawatan umum orang dewasa. Kebutuhan bayi, kulit yang sedang terluka, dan kondisi medis tertentu perlu dibahas dengan tenaga kesehatan."
+      }
+    ]
+  },
+  {
+    "id": "breakouts",
+    "category": "Memahami keluhan",
+    "title": "Jerawat butuh perhatian, bukan tekanan.",
+    "excerpt": "Mulai dari kebiasaan yang lembut sebelum mencoba lebih banyak perawatan.",
+    "minutes": 4,
+    "art": "pores",
+    "source": {
+      "title": "American Academy of Dermatology",
+      "url": "https://www.aad.org/public/everyday-care/skin-care-basics/dry/oily-skin"
+    },
+    "sections": [
+      {
+        "title": "Hindari membersihkan secara berlebihan",
+        "body": "Kulit berminyak tetap membutuhkan perawatan lembut. Membersihkan terlalu keras dapat mengiritasi kulit. Pilih produk berlabel nonkomedogenik atau oil-free bila sesuai."
+      },
+      {
+        "title": "Jangan memencet benjolan",
+        "body": "Memencet dapat melukai kulit. Tidak semua benjolan merupakan jerawat dan sebuah foto tidak selalu dapat membedakannya."
+      },
+      {
+        "title": "Buat catatan untuk konsultasi",
+        "body": "Catat kapan benjolan muncul, apakah terasa nyeri, dan produk yang digunakan. Keluhan yang menetap atau meninggalkan bekas sebaiknya dievaluasi dokter."
+      }
+    ]
+  },
+  {
+    "id": "changing-skin",
+    "category": "Kapan ke dokter",
+    "title": "Perubahan kecil yang perlu dicatat.",
+    "excerpt": "Kenali perubahan lesi dan siapkan informasi yang berguna untuk konsultasi.",
+    "minutes": 3,
+    "art": "mole",
+    "source": {
+      "title": "American Academy of Dermatology",
+      "url": "https://www.aad.org/public/diseases/skin-cancer"
+    },
+    "sections": [
+      {
+        "title": "Perhatikan perubahan",
+        "body": "Tahi lalat yang berubah bentuk, warna, ukuran, atau luka yang tidak sembuh perlu diperiksa. Foto berkala dapat membantu mendokumentasikan perubahan, tetapi tidak memastikan apakah sebuah lesi berbahaya."
+      },
+      {
+        "title": "Jangan menunggu skor AI",
+        "body": "Hasil model yang tampak meyakinkan tidak boleh menunda pemeriksaan langsung. Pemeriksaan kulit dapat memerlukan dermoskopi dan prosedur lain yang tidak tersedia dalam aplikasi ini."
+      },
+      {
+        "title": "Bawa cerita lengkapnya",
+        "body": "Siapkan waktu mulai perubahan, gejala, obat yang digunakan, dan foto sebelumnya jika ada. Jurnal DermaScan dapat membantu menyusun catatan tersebut."
+      }
+    ]
+  },
+  {
+    "id": "dry-skin",
+    "category": "Dasar perawatan",
+    "title": "Saat kulit terasa kering dan tertarik.",
+    "excerpt": "Kembalikan perhatian pada kelembapan dan kebiasaan membersihkan kulit.",
+    "minutes": 3,
+    "art": "water",
+    "source": {
+      "title": "American Academy of Dermatology",
+      "url": "https://www.aad.org/public/everyday-care/skin-care-basics"
+    },
+    "sections": [
+      {
+        "title": "Mulai dengan lembut",
+        "body": "Hindari menggosok kulit dan air yang terlalu panas. Pertimbangkan pelembap tanpa pewangi, terutama ketika kulit terasa kering."
+      },
+      {
+        "title": "Kering bukan sebuah diagnosis",
+        "body": "Rasa kering dapat berhubungan dengan lingkungan, produk, maupun kondisi kulit tertentu. Tampilan foto saja tidak cukup untuk menentukan penyebabnya."
+      },
+      {
+        "title": "Catat dan evaluasi",
+        "body": "Catat pemicu dan respons terhadap produk. Jika disertai luka, nyeri, atau keluhan menetap, minta penilaian tenaga kesehatan."
+      }
+    ]
+  },
+  {
+    "id": "serious-rash",
+    "category": "Kapan ke dokter",
+    "title": "Kenali tanda yang tidak boleh menunggu.",
+    "excerpt": "Sebagian keluhan membutuhkan pertolongan medis, bukan analisis foto.",
+    "minutes": 2,
+    "art": "alert",
+    "source": {
+      "title": "NHS",
+      "url": "https://www.nhs.uk/conditions/stevens-johnson-syndrome/"
+    },
+    "sections": [
+      {
+        "title": "Melepuh, demam, atau luka pada mulut dan mata",
+        "body": "Ruam yang melepuh disertai demam atau luka pada mulut dan mata dapat menunjukkan reaksi serius. Cari pertolongan medis segera; jangan menunggu hasil aplikasi."
+      },
+      {
+        "title": "Sulit bernapas atau pembengkakan wajah",
+        "body": "Gejala tersebut memerlukan pertolongan segera. Minta bantuan orang terdekat dan cari layanan gawat darurat."
+      },
+      {
+        "title": "Siapkan informasi obat",
+        "body": "Bawa daftar obat, suplemen, dan waktu mulai munculnya gejala. Jangan menggunakan rekomendasi perawatan umum sebagai pengganti pertolongan darurat."
+      }
+    ]
+  }
+]

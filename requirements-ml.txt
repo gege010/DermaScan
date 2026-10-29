@@ -1,0 +1,10 @@
+-r requirements.txt
+tensorflow==2.20.0
+scikit-learn==1.7.2
+pandas==2.3.3
+matplotlib==3.10.7
+seaborn==0.13.2
+opencv-python-headless==4.12.0.88
+joblib==1.5.2
+# Optional legacy Keras 2 HDF5 loader; install only if your old artifact needs it:
+# tf-keras==2.20.1

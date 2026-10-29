@@ -56,3 +56,17 @@ mlruns/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Web application and verification output
+node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+.env.*
+!.env.example
+!web/.env.example
+artifacts/
+premium-audit.json
+models/*.joblib
+*.tsbuildinfo
+models/compact/

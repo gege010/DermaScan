@@ -13,7 +13,6 @@ if str(SRC_DIR) not in sys.path:
 
 import numpy as np
 import tensorflow as tf
-from PIL import Image
 
 from utils.gradcam import GradCAM
 from utils.logger import get_logger
@@ -24,31 +23,45 @@ logger = get_logger(__name__)
 ROOT_DIR = SRC_DIR.parent
 DEFAULT_MODEL_PATH = ROOT_DIR / "models" / "skin_model_best.keras"
 DEFAULT_CLASS_NAMES_PATH = ROOT_DIR / "models" / "class_names.json"
-IMG_SIZE = (224, 224)
+IMG_SIZE = (300, 300)
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+from src.dermascan.imaging import prepare_image
 
 
 def load_artifacts(model_path: Path, class_names_path: Path) -> tuple[tf.keras.Model, list[str]]:
     """Load model and class names from disk once."""
     if not model_path.exists():
         raise FileNotFoundError(
-            f"Model not found at {model_path}. "
-            "Run `python src/train.py` first."
+            f"Model not found at {model_path}. Run `python src/train.py` first."
         )
-    model = tf.keras.models.load_model(str(model_path))
-    
+    try:
+        model = tf.keras.models.load_model(str(model_path), compile=False)
+    except (ValueError, TypeError):
+        import tf_keras
+
+        model = tf_keras.models.load_model(str(model_path), compile=False)
+
     with open(class_names_path) as f:
         class_names = json.load(f)
-        
+    if (
+        not isinstance(class_names, list)
+        or not class_names
+        or len(set(class_names)) != len(class_names)
+        or len(class_names) != model.output_shape[-1]
+    ):
+        raise ValueError("Class metadata must match the model's ordered output labels.")
+
     logger.info(f"Loaded model from {model_path} with {len(class_names)} class names.")
     return model, class_names
 
 
-def preprocess(image_path: str | Path) -> tuple[np.ndarray, np.ndarray]:
+def preprocess(
+    image_path: str | Path, size: tuple[int, int] = IMG_SIZE
+) -> tuple[np.ndarray, np.ndarray]:
     """Load and preprocess image."""
-    img = Image.open(image_path).convert("RGB").resize(IMG_SIZE)
-    arr = np.array(img, dtype=np.uint8)
-    model_input = np.expand_dims(arr.astype(np.float32) / 255.0, axis=0)
-    return model_input, arr
+    image = prepare_image(Path(image_path).read_bytes())
+    return image.tensor(size), image.pixels
 
 
 def predict(
@@ -59,7 +72,7 @@ def predict(
     generate_gradcam: bool = False,
 ) -> dict:
     """Run inference on a single image using a pre-loaded model."""
-    model_input, original_arr = preprocess(image_path)
+    model_input, original_arr = preprocess(image_path, tuple(model.input_shape[1:3]))
 
     probs = model.predict(model_input, verbose=0)[0]
     top_indices = np.argsort(probs)[::-1][:top_k]
@@ -68,8 +81,7 @@ def predict(
         "predicted_class": class_names[top_indices[0]],
         "confidence": float(probs[top_indices[0]]),
         "top_predictions": [
-            {"class": class_names[i], "probability": float(probs[i])}
-            for i in top_indices
+            {"class": class_names[i], "probability": float(probs[i])} for i in top_indices
         ],
         "gradcam_heatmap_base64": None,
     }
@@ -90,8 +102,15 @@ def predict(
 def main():
     parser = argparse.ArgumentParser(description="DermaScan Inference")
     parser.add_argument("--image", required=True, help="Path to input image")
-    parser.add_argument("--model", type=str, default=str(DEFAULT_MODEL_PATH), help="Path to the .keras model file")
-    parser.add_argument("--classes", type=str, default=str(DEFAULT_CLASS_NAMES_PATH), help="Path to class_names.json")
+    parser.add_argument(
+        "--model", type=str, default=str(DEFAULT_MODEL_PATH), help="Path to the .keras model file"
+    )
+    parser.add_argument(
+        "--classes",
+        type=str,
+        default=str(DEFAULT_CLASS_NAMES_PATH),
+        help="Path to class_names.json",
+    )
     parser.add_argument("--top_k", type=int, default=3, help="Number of top predictions")
     parser.add_argument("--gradcam", action="store_true", help="Generate Grad-CAM heatmap")
     args = parser.parse_args()
@@ -101,17 +120,17 @@ def main():
 
     # Oper model dan class_names ke fungsi predict
     result = predict(
-        image_path=args.image, 
-        model=model, 
-        class_names=class_names, 
-        top_k=args.top_k, 
-        generate_gradcam=args.gradcam
+        image_path=args.image,
+        model=model,
+        class_names=class_names,
+        top_k=args.top_k,
+        generate_gradcam=args.gradcam,
     )
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"  PREDICTION: {result['predicted_class']}")
     print(f"  CONFIDENCE: {result['confidence']:.2%}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     print("\nTop predictions:")
     for i, p in enumerate(result["top_predictions"], 1):
         bar = "█" * int(p["probability"] * 30)

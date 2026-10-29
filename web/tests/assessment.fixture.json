@@ -1,0 +1,61 @@
+{
+  "id": "3e171f206f5541958c6ef7cbb6d2d067",
+  "assessment": {
+    "status": "unsupported",
+    "title": "Foto belum dapat diberi kesimpulan medis",
+    "summary": "DermaScan dapat membantu menyiapkan catatan keluhan dan edukasi. Model foto pada proyek ini belum tervalidasi untuk diagnosis pada penggunaan publik.",
+    "next_steps": [
+      "Catat perubahan, pemicu, dan produk yang baru digunakan.",
+      "Jika keluhan menetap, memburuk, atau terasa mengganggu, periksakan ke dokter."
+    ]
+  },
+  "context": {
+    "symptoms": [],
+    "duration": "unknown",
+    "area": "face",
+    "image_kind": "clinical"
+  },
+  "quality": {
+    "width": 320,
+    "height": 320,
+    "issues": [],
+    "scope": "Pemeriksaan teknis; tidak membuktikan foto berisi kulit."
+  },
+  "candidates": [],
+  "education": [
+    {
+      "title": "Mulai dari perawatan sederhana",
+      "body": "Gunakan pembersih lembut dan hindari menggosok kulit. Hentikan produk baru yang terasa mengiritasi. Panduan ini bukan resep untuk kondisi tertentu."
+    },
+    {
+      "title": "Lindungi kulit dari matahari",
+      "body": "Cari tempat teduh dan gunakan pelindung matahari sesuai petunjuk produk. AAD menyarankan perlindungan spektrum luas SPF 30 atau lebih untuk rutinitas dewasa."
+    }
+  ],
+  "references": [
+    {
+      "title": "Dasar perawatan kulit · AAD",
+      "url": "https://www.aad.org/public/everyday-care/skin-care-basics"
+    },
+    {
+      "title": "Tanda reaksi kulit serius · NHS",
+      "url": "https://www.nhs.uk/conditions/stevens-johnson-syndrome/"
+    },
+    {
+      "title": "Mengenali perubahan lesi · AAD",
+      "url": "https://www.aad.org/public/diseases/skin-cancer"
+    }
+  ],
+  "warnings": [
+    "Tidak ada model tervalidasi yang dapat menyimpulkan kondisi dari foto ini. Tidak ada diagnosis yang dibuat."
+  ],
+  "model": {
+    "available": false,
+    "mode": "unavailable",
+    "clinical_validation": false,
+    "class_count": 0,
+    "message": "Skor model adalah hasil eksperimen, bukan probabilitas diagnosis."
+  },
+  "privacy": "Foto tidak disimpan oleh aplikasi dan tidak dikirim ke penyedia AI eksternal.",
+  "elapsed_ms": 6
+}

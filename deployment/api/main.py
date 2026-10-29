@@ -1,322 +1,242 @@
-"""
-deployment/api/main.py
-──────────────
-DermaScan FastAPI Backend
-
-Endpoints:
-  GET  /health    — Service health check
-  POST /predict   — Skin condition classification + AI analysis
-  GET  /docs      — Swagger UI (auto-generated)
-"""
+"""DermaScan v3: bounded uploads, symptom-led escalation, optional research model."""
 
 from __future__ import annotations
 
-import io
+import asyncio
 import json
+import logging
 import os
-import sys
 import time
+from collections import OrderedDict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
-
-import numpy as np
-
-# Model di-save dengan Keras 2 (format HDF5).
-# Set SEBELUM import tensorflow agar tf.keras API tetap kompatibel.
-os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")
-
-import tensorflow as tf
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from PIL import Image
-from pydantic import BaseModel, Field
-
-# Tambahkan src/ ke sys.path agar utils dapat ditemukan
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent   # deployment/api -> deployment -> root
-SRC_DIR = ROOT_DIR / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
-from utils.gradcam import GradCAM
-from utils.groq_analyzer import GroqAnalyzer
-from utils.logger import get_logger
-from utils.tavily_search import TavilySearch
+from typing import Annotated, Literal
+from uuid import uuid4
 
 from dotenv import load_dotenv
-load_dotenv(ROOT_DIR / ".env")
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
-# ─── Config ──────────────────────────────────────────────────────────────────
-
-logger = get_logger(__name__)
-
-# Kandidat model path — dicoba berurutan sampai ditemukan
-MODEL_CANDIDATES = [
-    ROOT_DIR / "models" / "skin_model_best.keras",
-    ROOT_DIR / "models" / "skin_model_phase2.keras",
-    ROOT_DIR / "models" / "skin_model_phase1.keras",
-]
-CLASS_NAMES_PATH = ROOT_DIR / "models" / "class_names.json"
-IMG_SIZE = (300, 300)  # EfficientNetB3 optimal input size
-TOP_K = 3
-
-# Security: File validation
-ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
-MAX_FILE_SIZE_MB = 10
-MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-
-# Global model state (loaded once at startup)
-model: tf.keras.Model | None = None
-CLASS_NAMES: list[str] = []
-gradcam: GradCAM | None = None
-groq_analyzer = GroqAnalyzer()
-tavily_search = TavilySearch()
-
-# Urgency mapping
-URGENCY_MAP = {
-    "Melanoma": "SEGERA",
-    "Basal Cell Carcinoma": "SEGERA",
-    "Actinic Keratosis": "SEGERA",
-    "SJS/TEN": "SEGERA",
-    "Benign Keratosis": "PERHATIAN",
-    "Vascular Lesion": "PERHATIAN",
-    "Psoriasis Nail": "PERHATIAN",
-    "Vitiligo": "PERHATIAN",
-    "Acne": "PERHATIAN",
-}
-
-# ─── Lifespan (model loading) ─────────────────────────────────────────────────
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global model, CLASS_NAMES, gradcam
-
-    logger.info("Loading DermaScan model...")
-    # Cari model pertama yang tersedia
-    model_path = next((p for p in MODEL_CANDIDATES if p.exists()), None)
-    try:
-        if model_path is None:
-            logger.warning(f"No model file found. Tried: {[p.name for p in MODEL_CANDIDATES]}")
-        else:
-            logger.info(f"Loading from: {model_path.name}")
-            custom_objs = {}
-            # Coba import focal_loss untuk custom_objects (diperlukan untuk HDF5 format)
-            try:
-                from train import focal_loss
-                custom_objs = {"focal_loss": focal_loss(gamma=2.0, alpha=0.25)}
-            except Exception:
-                pass
-            try:
-                import tf_keras
-                model = tf_keras.models.load_model(
-                    str(model_path), custom_objects=custom_objs, compile=False
-                )
-            except (ImportError, Exception):
-                model = tf.keras.models.load_model(
-                    str(model_path), custom_objects=custom_objs, compile=False
-                )
-            gradcam = GradCAM(model)
-            logger.info(f"Model loaded. Input shape: {model.input_shape}")
-    except Exception as e:
-        logger.error(f"Failed to load model: {e}")
-        model = None
-
-    try:
-        if CLASS_NAMES_PATH.exists():
-            with open(CLASS_NAMES_PATH) as f:
-                raw_data = json.load(f)
-                
-                if isinstance(raw_data, dict) and "class_names" in raw_data:
-                    codes = raw_data["class_names"]
-                    display_dict = raw_data.get("class_display_names", {})
-                    CLASS_NAMES = [display_dict.get(c, c) for c in codes]
-                elif isinstance(raw_data, dict):
-                    CLASS_NAMES = list(raw_data.values())
-                else:
-                    CLASS_NAMES = raw_data
-                    
-            logger.info(f"Loaded {len(CLASS_NAMES)} class names.")
-        else:
-            logger.warning("Class names metadata not found.")
-    except Exception as e:
-        logger.error(f"Failed to load class names: {e}")
-
-    yield  # Menandakan startup selesai, aplikasi siap menerima request
-
-    logger.info("Shutting down DermaScan API.")
-    
-    if model is not None:
-        del model
-        tf.keras.backend.clear_session()
-
-# ─── App Setup ────────────────────────────────────────────────────────────────
-
-app = FastAPI(
-    title="DermaScan API",
-    description="AI-powered skin condition classifier using EfficientNetB3 + Focal Loss + Groq LLM",
-    version="2.0.0",
-    lifespan=lifespan,
+from src.dermascan.clinical import (
+    REVIEW_CLASSES,
+    SOURCES,
+    SYMPTOMS,
+    education_for,
+    initial_assessment,
 )
+from src.dermascan.imaging import MAX_BYTES, prepare_image
+from src.dermascan.inference import ModelService
+from src.dermascan.schemas import AnalysisResponse, ModelInfo
 
-# CORS configuration - restrict origins in production
-# For local development, use localhost:8501; for production, specify exact domains
-ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:8501").split(",")
+ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(ROOT / ".env")
+logger = logging.getLogger("dermascan.api")
+VERSION = "3.0.0"
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-    allow_credentials=True,
-)
 
-# ─── Response Schemas ─────────────────────────────────────────────────────────
+def create_app(service: ModelService | None = None) -> FastAPI:
+    model_service = service or ModelService(
+        Path(os.getenv("MODEL_DIR", str(ROOT / "models"))),
+        os.getenv("ENABLE_LEGACY_MODEL", "false").lower() == "true",
+    )
+    requests_by_client: OrderedDict[str, deque] = OrderedDict()
+    max_requests = int(os.getenv("ANALYSIS_RATE_LIMIT", "12"))
 
-class ClassProbability(BaseModel):
-    class_name: str = Field(..., alias="class")
-    probability: float
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        await run_in_threadpool(model_service.load)
+        app.state.analysis_slots = asyncio.Semaphore(2)
+        yield
 
-    class Config:
-        populate_by_name = True
-
-class PredictionResponse(BaseModel):
-    predicted_class: str
-    confidence: float
-    top_3_predictions: list[ClassProbability]
-    urgency_level: str
-    ai_analysis: dict[str, Any]
-    references: Any
-    gradcam_heatmap_base64: str | None = None
-    inference_time_ms: float
-
-class HealthResponse(BaseModel):
-    status: str
-    model_loaded: bool
-    num_classes: int
-    version: str = "1.0.0"
-
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-
-def preprocess_image(image_bytes: bytes) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Validate and preprocess image bytes for model inference.
-    Returns normalized input array and original image array.
-    """
-    try:
-        img = Image.open(io.BytesIO(image_bytes))
-        img.verify()
-        img = Image.open(io.BytesIO(image_bytes))
-        img = img.convert("RGB").resize(IMG_SIZE)
-        arr = np.array(img, dtype=np.uint8)
-        # Gunakan EfficientNet preprocessing (sama seperti saat training)
-        # preprocess_input: normalize ke range [-1, 1] (bukan /255)
-        model_input = tf.keras.applications.efficientnet.preprocess_input(
-            np.expand_dims(arr.astype(np.float32), axis=0)
-        )
-        return model_input, arr
-    except Exception as e:
-        logger.error(f"Image preprocessing failed: {e}")
-        raise ValueError("Invalid image format. Please upload a valid JPEG or PNG image.")
-
-# ─── Endpoints ────────────────────────────────────────────────────────────────
-
-@app.get("/health", response_model=HealthResponse, tags=["Meta"])
-async def health():
-    """Returns service health status and model load state."""
-    return HealthResponse(
-        status="ok",
-        model_loaded=model is not None,
-        num_classes=len(CLASS_NAMES),
+    app = FastAPI(
+        title="DermaScan",
+        version=VERSION,
+        lifespan=lifespan,
+        description="Skin education and research image assessment. Not a diagnostic medical device.",
+    )
+    app.state.model_service = model_service
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=os.getenv(
+            "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+        ).split(","),
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+        allow_credentials=False,
     )
 
-@app.post("/predict", response_model=PredictionResponse, tags=["Prediction"])
-async def predict(file: UploadFile = File(..., description="Skin image (JPEG or PNG)")):
-    """
-    Analyze a skin image and return predictions, Grad-CAM, Groq analysis, and Tavily references.
-    """
-    if model is None or not CLASS_NAMES:
-        raise HTTPException(status_code=503, detail="Model not loaded. Please retry later.")
+    @app.middleware("http")
+    async def security(request: Request, call_next):
+        request_id = uuid4().hex
+        if request.url.path in {"/api/v1/analyze", "/predict"}:
+            # Do not trust client-provided forwarding headers.
+            client = request.client.host if request.client else "unknown"
+            now = time.monotonic()
+            bucket = requests_by_client.setdefault(client, deque())
+            requests_by_client.move_to_end(client)
+            while bucket and bucket[0] < now - 60:
+                bucket.popleft()
+            if len(bucket) >= max_requests:
+                return JSONResponse(
+                    {"detail": "Terlalu banyak analisis. Coba lagi dalam satu menit."},
+                    status_code=429,
+                    headers={"Retry-After": "60", "Cache-Control": "no-store"},
+                )
+            bucket.append(now)
+            while len(requests_by_client) > 2048:
+                requests_by_client.popitem(last=False)
+            try:
+                if int(request.headers.get("content-length", "0")) > MAX_BYTES + 64 * 1024:
+                    return JSONResponse({"detail": "Foto maksimal 10 MB."}, status_code=413)
+            except ValueError:
+                return JSONResponse({"detail": "Ukuran permintaan tidak valid."}, status_code=400)
+        response = await call_next(request)
+        response.headers.update(
+            {
+                "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
+                "Cache-Control": "no-store",
+                "X-Request-ID": request_id,
+            }
+        )
+        return response
 
-    if file.content_type not in ALLOWED_MIME_TYPES:
+    @app.get("/health")
+    def health():
+        return {"status": "ok", "version": VERSION, "model": model_service.describe()}
+
+    @app.get("/ready")
+    def ready():
+        if os.getenv("REQUIRE_MODEL", "false").lower() == "true" and model_service.model is None:
+            return JSONResponse({"status": "model_unavailable"}, status_code=503)
+        return {"status": "ready", "mode": model_service.kind}
+
+    @app.get("/api/v1/knowledge")
+    def knowledge():
+        return json.loads((ROOT / "content" / "education.json").read_text(encoding="utf-8"))
+
+    @app.get("/api/v1/model", response_model=ModelInfo)
+    def model_info():
+        return model_service.describe()
+
+    @app.post("/predict", include_in_schema=False)
+    def legacy_predict():
         raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {file.content_type}. Use JPEG or PNG.",
+            410,
+            "Endpoint lama dihentikan. Gunakan /api/v1/analyze dengan persetujuan dan konteks foto.",
         )
 
-    # Validate file size - read in chunks to avoid memory issues
-    contents = await file.read(MAX_FILE_SIZE_BYTES + 1)
-    if len(contents) > MAX_FILE_SIZE_BYTES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Maximum size: {MAX_FILE_SIZE_MB}MB.",
-        )
-    # Reset file pointer for downstream consumption
-    file.file._file = io.BytesIO(contents)
-    file.file.seek(0)
-
-    t0 = time.perf_counter()
-
-    # Read and preprocess image (Synchronous read untuk menghindari error Threadpool)
-    try:
-        image_bytes = file.file.read()
-        model_input, original_arr = preprocess_image(image_bytes)
-    except Exception as e:
-        logger.error(f"Image preprocessing failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
-    finally:
-        file.file.close()
-
-    # CNN Prediction
-    predictions = model.predict(model_input, verbose=0)[0]
-    top_k_indices = np.argsort(predictions)[::-1][:TOP_K]
-
-    predicted_idx = int(top_k_indices[0])
-    predicted_class = CLASS_NAMES[predicted_idx]
-    confidence = float(predictions[predicted_idx])
-
-    top_k = [
-        ClassProbability(**{"class": CLASS_NAMES[i], "probability": float(predictions[i])})
-        for i in top_k_indices
-    ]
-
-    # Grad-CAM
-    heatmap_b64 = None
-    if gradcam is not None:
+    @app.post("/api/v1/analyze", response_model=AnalysisResponse)
+    async def analyze(
+        request: Request,
+        consent: Annotated[bool, Form()],
+        image_kind: Annotated[Literal["clinical", "dermoscopy"], Form()] = "clinical",
+        symptoms: Annotated[str, Form(max_length=1000)] = "[]",
+        duration: Annotated[Literal["days", "weeks", "months", "unknown"], Form()] = "unknown",
+        area: Annotated[Literal["face", "body", "hands", "scalp", "other"], Form()] = "face",
+        file: Annotated[UploadFile | None, File()] = None,
+    ):
+        if not consent:
+            raise HTTPException(422, "Persetujuan pemrosesan foto diperlukan.")
         try:
-            heatmap = gradcam.generate(model_input, class_idx=predicted_idx)
-            overlay = gradcam.overlay_heatmap(original_arr, heatmap)
-            heatmap_b64 = gradcam.to_base64(overlay)
-        except Exception as e:
-            logger.warning(f"Grad-CAM generation failed (non-fatal): {e}")
+            selected = json.loads(symptoms)
+            if (
+                not isinstance(selected, list)
+                or len(selected) > len(SYMPTOMS)
+                or any(not isinstance(s, str) or s not in SYMPTOMS for s in selected)
+            ):
+                raise ValueError
+            selected = list(dict.fromkeys(selected))
+        except (ValueError, TypeError):
+            raise HTTPException(422, "Pilihan gejala tidak valid.")
+        assessment = initial_assessment(selected)
+        quality = None
+        candidates: list[dict] = []
+        warnings: list[str] = []
+        started = time.perf_counter()
+        if assessment["status"] not in {"urgent", "review"}:
+            if file is None:
+                raise HTTPException(422, "Pilih satu foto kulit terlebih dahulu.")
+            try:
+                contents = await file.read(MAX_BYTES + 1)
+            finally:
+                await file.close()
+            if len(contents) > MAX_BYTES:
+                raise HTTPException(413, "Foto maksimal 10 MB.")
+            try:
+                image = await run_in_threadpool(prepare_image, contents)
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
+            quality = {
+                "width": image.width,
+                "height": image.height,
+                "issues": image.issues,
+                "scope": "Pemeriksaan teknis; tidak membuktikan foto berisi kulit.",
+            }
+            if image.issues:
+                assessment = {
+                    "status": "retake",
+                    "title": "Mari ambil foto yang lebih jelas",
+                    "summary": "Detail foto belum cukup untuk analisis yang berguna.",
+                    "next_steps": image.issues,
+                }
+            else:
+                try:
+                    async with asyncio.timeout(30):
+                        async with request.app.state.analysis_slots:
+                            candidates = await run_in_threadpool(
+                                model_service.predict, image, image_kind
+                            )
+                except TimeoutError:
+                    raise HTTPException(503, "Layanan analisis sedang penuh. Coba lagi sebentar.")
+                except Exception:
+                    logger.exception("Research inference failed")
+                    warnings.append(
+                        "Model lokal gagal memproses foto. Tidak ada hasil model yang digunakan."
+                    )
+                if candidates:
+                    assessment = {
+                        "status": "research",
+                        "title": "Pola visual tersedia untuk ditinjau",
+                        "summary": "Model menemukan kemiripan dengan label dataset. Hasil ini belum membuktikan kondisi kulit Anda dan tidak boleh digunakan untuk memilih obat.",
+                        "next_steps": initial_assessment([])["next_steps"],
+                    }
+                    if candidates[0]["code"] in REVIEW_CLASSES:
+                        assessment = initial_assessment(["changing_mole"])
+                        assessment["summary"] = (
+                            "Hasil eksperimen menyentuh kategori yang perlu evaluasi langsung. Ini bukan konfirmasi penyakit; diskusikan keluhan dengan dokter kulit."
+                        )
+                    warnings.append(
+                        "Skor belum dikalibrasi secara klinis. Skor tinggi tidak menjamin prediksi benar, termasuk pada foto di luar cakupan."
+                    )
+                else:
+                    warnings.append(
+                        "Tidak ada model tervalidasi yang dapat menyimpulkan kondisi dari foto ini. Tidak ada diagnosis yang dibuat."
+                    )
+        if file is not None and not file.file.closed:
+            await file.close()
+        return {
+            "id": uuid4().hex,
+            "assessment": assessment,
+            "context": {
+                "symptoms": [SYMPTOMS[s] for s in selected],
+                "duration": duration,
+                "area": area,
+                "image_kind": image_kind,
+            },
+            "quality": quality,
+            "candidates": candidates,
+            "education": [] if assessment["status"] == "urgent" else education_for(selected),
+            "references": SOURCES,
+            "warnings": warnings,
+            "model": model_service.describe(),
+            "privacy": "Foto tidak disimpan oleh aplikasi dan tidak dikirim ke penyedia AI eksternal.",
+            "elapsed_ms": round((time.perf_counter() - started) * 1000),
+        }
 
-    # AI Analysis (Groq)
-    try:
-        ai_result = groq_analyzer.analyze(predicted_class, confidence)
-    except Exception as e:
-        logger.error(f"AI analysis failed: {e}")
-        ai_result = {"error": "AI analysis unavailable"}
+    return app
 
-    # Web Search (Tavily) - Dipisah dari Groq agar jika salah satu gagal, yang lain tetap jalan
-    try:
-        references = tavily_search.search(f"{predicted_class} skin condition treatment")
-    except Exception as e:
-        logger.error(f"Web search failed: {e}")
-        references = []
 
-    inference_ms = (time.perf_counter() - t0) * 1000
-    logger.info(
-        f"Prediction: {predicted_class} ({confidence:.2%}) | "
-        f"Urgency: {URGENCY_MAP.get(predicted_class, 'NORMAL')} | "
-        f"Time: {inference_ms:.0f}ms"
-    )
-
-    return PredictionResponse(
-        predicted_class=predicted_class,
-        confidence=confidence,
-        top_3_predictions=top_k,
-        urgency_level=URGENCY_MAP.get(predicted_class, "NORMAL"),
-        ai_analysis=ai_result,
-        references=references,
-        gradcam_heatmap_base64=heatmap_b64,
-        inference_time_ms=round(inference_ms, 2),
-    )
+app = create_app()
