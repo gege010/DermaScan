@@ -3,13 +3,13 @@ version: alpha
 name: DermaScan
 description: A quiet Indonesian skin education studio with an interactive anatomical specimen.
 colors:
-  primary: "#203b53"
-  primary-hover: "#142b3e"
-  background: "#fafbfc"
-  surface: "#f0f3f5"
-  muted: "#526471"
-  border: "#dbe2e7"
-  blue-wash: "#e7eef3"
+  primary: "#243c37"
+  primary-hover: "#182c28"
+  background: "#f7f5ee"
+  surface: "#eeeee5"
+  muted: "#4f5e56"
+  border: "#d8d9cc"
+  blue-wash: "#e5eae0"
   danger: "#9b3636"
   danger-background: "#fcf0ee"
   warning: "#825b26"
@@ -38,7 +38,7 @@ components:
 
 An Indonesian skin education studio for adults who want to understand a concern before choosing a next step. Hybrid register: the home page introduces a point of view, while analysis, knowledge and journal pages prioritize comprehension and honest feedback.
 
-The signature is an exploded, interactive skin specimen. Its materials borrow from anatomical teaching models, with ink-blue annotation and warm tissue layers. All diagrams are explicitly illustrative. Avoid hospital dashboards, beauty-product commerce, invented clinical trust badges, gradient hero blobs, oversized pills, and medical outcome promises.
+The signature is an exploded, interactive skin specimen. The layered brand mark echoes the specimen and appears in the header and favicon. Its materials borrow from anatomical teaching models, with warm ivory annotation on a deep green field and warm tissue layers. All diagrams are explicitly illustrative. Avoid hospital dashboards, beauty-product commerce, invented clinical trust badges, gradient hero blobs, oversized pills, and medical outcome promises.
 
 References supplied by the user: impeccable.style (restraint and critique), tasteskill.dev (intentional typography), emilkowal.ski/skill and ui-skills.com/skills/emilkowalski/apple-design (immediate feedback, restrained motion, reduced motion), uupm.cc (state coverage). These are inspiration, not imported code or business policy.
 
@@ -48,19 +48,19 @@ Runtime owner: `web/src/styles.css :root`. The values above document the accepte
 
 ## Typography
 
-Self-hosted Manrope Variable for headings, DM Sans Variable for body and utility. CSS `--font-display` and `--font-body` are the only family owners. Heading scale: home 46–80px, page 41–55px, section 27–39px; body 12–16px, captions 9–11px. Tight display tracking is paired with generous reading line-height. Indonesian is the only supported locale; do not introduce untranslated product controls.
+Self-hosted Manrope Variable for headings, DM Sans Variable for body and utility. Georgia, through `--font-editorial`, sets the atlas and page titles. Use Manrope and DM Sans for task headings and controls. Heading scale: home 49–94px, page 41–55px, section 27–39px; body 12–16px, captions 9–11px. Tight display tracking is paired with generous reading line-height. Indonesian is the only supported locale; do not introduce untranslated product controls.
 
 ## Layout
 
-1248px maximum canvas with 56px desktop gutters, 22px phone gutters. Natural document scrolling, sticky 88px desktop / 68px phone header. Home is an asymmetrical two-column composition collapsing to one column; app forms use a main column and quiet help rail. Reading pages cap line length. Knowledge uses six bounded articles and URL-restorable local filters; journal has a 100-entry cap. No unbounded or viewport-locked tables.
+1248px maximum canvas with 56px desktop gutters, 22px phone gutters. Natural document scrolling, sticky 88px desktop / 68px phone header. Home is an two-column atlas composition collapsing to one column, with three direct task links beneath it; app forms use a main column and quiet help rail. Reading pages cap line length. Knowledge uses six bounded articles and URL-restorable local filters; journal has a 100-entry cap. No unbounded or viewport-locked tables.
 
 ## Elevation & Depth
 
-Content is flat. Borders organize tasks. Elevation belongs to illustration materials and the app-owned confirmation dialog. No card hover lift. Blur is limited to header and modal backdrop.
+Content is flat. Borders organize tasks. Elevation belongs to illustration materials, the atlas frame and the app-owned confirmation dialog. No card hover lift. Blur is limited to header and modal backdrop.
 
 ## Shapes
 
-7px controls, 12px working surfaces, 22px dialog/results. One 72px cut at the home specimen's bottom-right is a deliberate specimen-board signature. Do not spread this cut to unrelated screens.
+7px controls, 12px working surfaces, 22px dialog/results. One 64px cut at the home specimen's bottom-right is a deliberate specimen-board signature. Do not spread this cut to unrelated screens.
 
 ## Components
 

@@ -7,16 +7,10 @@ export default function Method() {
     <div className="container page method-page">
       <div className="method-hero">
         <div className="page-intro">
-          <p className="eyebrow">PENDEKATAN KAMI</p>
-          <h1>
-            Teknologi yang
-            <br />
-            tahu batasnya.
-          </h1>
+          <h1>Teknologi yang tahu batasnya.</h1>
           <p>
-            Perawatan kulit membutuhkan konteks, perhatian,
-            <br />
-            dan penilaian manusia. Kami mulai dari sana.
+            Perawatan kulit membutuhkan konteks, perhatian, dan penilaian manusia. Kami mulai dari
+            sana.
           </p>
         </div>
         <SkinStudy compact />

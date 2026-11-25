@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { ArrowUpRight, Menu, X } from 'lucide-react';
 import { Brand } from './components/ui';
@@ -10,14 +10,26 @@ import Journal from './pages/Journal';
 import Method from './pages/Method';
 
 const links = [
-  { to: '/analisis', label: 'Kenali kulit' },
-  { to: '/panduan', label: 'Ruang belajar' },
-  { to: '/jurnal', label: 'Jurnal kulit' },
-  { to: '/pendekatan', label: 'Pendekatan kami' },
+  { to: '/analisis', label: 'Analisis' },
+  { to: '/panduan', label: 'Panduan' },
+  { to: '/jurnal', label: 'Jurnal' },
+  { to: '/pendekatan', label: 'Pendekatan' },
 ];
 function Shell() {
   const [menu, setMenu] = useState(false);
   const location = useLocation();
+  const toggle = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    function dismiss(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenu(false);
+        toggle.current?.focus();
+      }
+    }
+    document.addEventListener('keydown', dismiss);
+    return () => document.removeEventListener('keydown', dismiss);
+  }, [menu]);
   useEffect(() => {
     setMenu(false);
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -45,6 +57,7 @@ function Shell() {
             <ArrowUpRight size={16} />
           </Link>
           <button
+            ref={toggle}
             className="icon-button menu-toggle"
             type="button"
             aria-label={menu ? 'Tutup navigasi' : 'Buka navigasi'}
@@ -58,7 +71,14 @@ function Shell() {
         {menu && (
           <nav id="mobile-nav" className="mobile-nav" aria-label="Navigasi seluler">
             {links.map((l) => (
-              <NavLink key={l.to} to={l.to}>
+              <NavLink
+                key={l.to}
+                to={l.to}
+                onClick={() => {
+                  setMenu(false);
+                  document.getElementById('main')?.focus();
+                }}
+              >
                 {l.label}
                 <ArrowUpRight size={18} />
               </NavLink>

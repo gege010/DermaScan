@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, BookOpen, Search, X } from 'lucide-react';
 import { Art } from '../components/ui';
 import articles from '../../../content/education.json';
@@ -15,11 +15,11 @@ export default function Learn() {
       (category === 'Semua' || a.category === category) &&
       `${a.title} ${a.excerpt}`
         .toLocaleLowerCase('id-ID')
-        .includes(query.toLocaleLowerCase('id-ID')),
+        .includes(query.trim().toLocaleLowerCase('id-ID')),
   );
   function update(key: string, value: string) {
     const next = new URLSearchParams(params);
-    if (value && value !== 'Semua') next.set(key, value);
+    if (value && !(key === 'kategori' && value === 'Semua')) next.set(key, value);
     else next.delete(key);
     setParams(next, { replace: true });
   }
@@ -89,7 +89,12 @@ export default function Learn() {
       {filtered.length ? (
         <div className="article-grid library-grid">
           {filtered.map((a) => (
-            <Link className="article-card" to={`/panduan/${a.id}`} key={a.id}>
+            <Link
+              className="article-card"
+              to={`/panduan/${a.id}`}
+              state={{ librarySearch: params.toString() }}
+              key={a.id}
+            >
               <Art kind={a.art} />
               <div className="article-meta">
                 <span>{a.category}</span>
@@ -126,6 +131,7 @@ export default function Learn() {
 }
 export function Article() {
   const { id } = useParams();
+  const librarySearch = useLocation().state?.librarySearch;
   const article = articles.find((a) => a.id === id);
   if (!article)
     return (
@@ -138,7 +144,7 @@ export function Article() {
     );
   return (
     <article className="container page article-page">
-      <Link className="back-link" to="/panduan">
+      <Link className="back-link" to={{ pathname: '/panduan', search: librarySearch }}>
         <ArrowLeft size={16} />
         Ruang belajar
       </Link>

@@ -22,10 +22,17 @@ test('knowledge search, empty state and clear recover', async ({ page }) => {
   await expect(page.getByRole('status')).toContainText('6 panduan');
   await page.getByRole('button', { name: 'Kebiasaan harian' }).click();
   await expect(page.getByRole('status')).toContainText('1 panduan');
+  await page.getByLabel('Cari panduan').fill('matahari');
   await page.getByRole('link', { name: /Perlindungan matahari, setiap hari/ }).click();
   await expect(
     page.getByRole('heading', { name: 'Gabungkan beberapa bentuk perlindungan' }),
   ).toBeVisible();
+  await page.getByRole('link', { name: 'Ruang belajar' }).click();
+  await expect(page.getByLabel('Cari panduan')).toHaveValue('matahari');
+  await expect(page.getByRole('button', { name: 'Kebiasaan harian' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });
 
 test('journal create edit session navigation export and confirmed delete', async ({ page }) => {
@@ -81,20 +88,30 @@ test('urgent direction is visible offline before any photo or API', async ({ pag
 });
 
 test('analysis failure preserves context and allows retry', async ({ page }) => {
-  await page.route('**/api/v1/analyze', (route) =>
-    route.fulfill({
+  await page.route('**/api/v1/analyze', (route) => {
+    expect(route.request().postData()).not.toContain('filename=');
+    return route.fulfill({
       status: 503,
       contentType: 'application/json',
       body: JSON.stringify({ detail: 'Layanan sedang penuh. Coba lagi.' }),
-    }),
-  );
+    });
+  });
   await page.goto('/analisis');
+  await page
+    .locator('input[type=file]')
+    .setInputFiles(fileURLToPath(new URL('./synthetic.png', import.meta.url)));
   await page.getByLabel('Tahi lalat berubah atau luka tidak sembuh').check();
-  await page.getByRole('checkbox', { name: /Saya setuju foto/ }).check();
+  await expect(page.getByRole('heading', { name: 'Tambahkan foto' })).toBeHidden();
+  await page.getByRole('checkbox', { name: /Saya setuju pilihan gejala/ }).check();
   await page.getByRole('button', { name: 'Lihat langkah berikutnya' }).click();
   await expect(page.getByRole('alert')).toContainText('Layanan sedang penuh');
   await expect(page.getByLabel('Tahi lalat berubah atau luka tidak sembuh')).toBeChecked();
   await expect(page.getByRole('button', { name: 'Coba lagi', exact: true })).toBeEnabled();
+  await page.route('**/api/v1/analyze', (route) =>
+    route.fulfill({ status: 429, contentType: 'text/html', body: '<h1>Too Many Requests</h1>' }),
+  );
+  await page.getByRole('button', { name: 'Coba lagi', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Terlalu banyak analisis');
 });
 
 test('accessible dialog keyboard cancellation restores focus', async ({ page }) => {
@@ -109,7 +126,7 @@ test('accessible dialog keyboard cancellation restores focus', async ({ page }) 
 });
 
 for (const path of ['/', '/analisis', '/panduan', '/jurnal', '/pendekatan']) {
-  test(`accessibility ${path}`, async ({ page }) => {
+  test(`accessibility ${path}`, async ({ page }, testInfo) => {
     await page.goto(path);
     await expect(page.getByRole('main')).toBeVisible();
     const audit = await new AxeBuilder({ page })
@@ -119,6 +136,15 @@ for (const path of ['/', '/analisis', '/panduan', '/jurnal', '/pendekatan']) {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
+    if (testInfo.project.name === 'desktop') {
+      for (const width of [320, 768]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+          `Horizontal overflow at ${width}px`,
+        ).toBe(true);
+      }
+    }
   });
 }
 
@@ -180,7 +206,7 @@ test('visual proof and responsive navigation', async ({ page }, testInfo) => {
     await page.getByRole('button', { name: 'Buka navigasi' }).click();
     await page
       .getByRole('navigation', { name: 'Navigasi seluler' })
-      .getByRole('link', { name: 'Jurnal kulit' })
+      .getByRole('link', { name: 'Jurnal', exact: true })
       .click();
     await expect(
       page.getByRole('heading', { name: 'Perubahan kecil, cerita yang berarti.' }),

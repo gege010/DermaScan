@@ -1,121 +1,85 @@
 # DermaScan
 
-A web platform for understanding skin concerns through contextual image assessment, source-linked education, and a private skin journal.
+[![Verifikasi DermaScan](https://github.com/gege010/DermaScan/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gege010/DermaScan/actions/workflows/ci.yml)
 
-**Status:** working software foundation for education and research. It is **not a clinically validated diagnostic or treatment service**. No reported accuracy is presented as a guarantee for real-world photos.
+DermaScan adalah aplikasi edukasi kulit berbahasa Indonesia untuk orang dewasa. Pengguna dapat mencatat gejala, menambahkan foto, membaca panduan dermatologi beserta sumbernya, dan menyiapkan riwayat perubahan kulit untuk konsultasi.
 
-## What changed in v3
+![Beranda DermaScan dengan tombol mulai analisis dan atlas lapisan kulit interaktif](docs/images/beranda.png)
 
-- React + TypeScript web interface replaces Streamlit: interactive anatomy, responsive analysis workflow, searchable education library, journal, and capability/privacy page.
-- FastAPI works without TensorFlow or external API keys. No image is sent to Groq, Tavily, or another external AI provider.
-- Serious symptom guidance takes precedence over image inference. Missing models, poor images, unsupported domains, and errors produce explicit outcomes rather than fabricated diagnoses.
-- Canonical RGB preprocessing, decoded-image validation, EXIF orientation, file/pixel limits, bounded inference concurrency, readiness, rate limits, and hardened same-origin proxy.
-- Session-only journal by default; optional browser persistence, edit, export, and confirmed deletion. No medical data is stored in Git or a server database.
-- Compact research pipeline: frozen EfficientNetB0 embeddings + linear classification, explicit group-disjoint splits and duplicate-content checks.
+## Fitur dan privasi
 
-## Run locally
+- **Analisis keluhan.** Gejala menjadi titik awal dan foto bersifat opsional. Aplikasi mengutamakan arahan untuk gejala serius dan menjelaskan saat foto belum bisa dinilai. Mode edukasi berjalan tanpa model, TensorFlow, atau kunci API.
+- **Atlas dan panduan.** Jelajahi tiga lapisan kulit, cari artikel berdasarkan topik atau kategori, lalu buka sumber aslinya.
+- **Jurnal pribadi.** Buat, sunting, ekspor, dan hapus catatan. Secara default catatan hanya bertahan selama sesi. Jika penyimpanan lokal diaktifkan, orang yang memakai profil browser yang sama dapat membacanya.
+- **Pemrosesan foto.** API memproses unggahan sementara tanpa menyimpannya sebagai arsip atau mengirimkannya ke penyedia AI eksternal.
 
-Python 3.11 and Node.js 22.12+ (or Node 24 LTS).
+DermaScan ditujukan untuk edukasi dan riset. Model opsional belum divalidasi untuk diagnosis klinis. Rincian data, evaluasi, dan keterbatasan tersedia di [kartu model](docs/MODEL_CARD.md).
 
-```powershell
-python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements-dev.txt
-.venv/Scripts/python -m uvicorn deployment.api.main:app --host 127.0.0.1 --port 8000 --no-access-log
+## Mulai dengan Docker
+
+Siapkan Git dan Docker dengan plugin Compose, lalu jalankan dari terminal.
+
+```sh
+git clone https://github.com/gege010/DermaScan.git
+cd DermaScan
+docker compose up --build --wait
 ```
 
-In a second terminal:
+Buka [aplikasi lokal](http://127.0.0.1:8080). Instalasi awal memakai mode edukasi tanpa konfigurasi tambahan. Jika analisis gagal dimuat, periksa [kesiapan API](http://127.0.0.1:8080/ready) dan jalankan `docker compose logs api web`. Untuk menghentikan aplikasi, jalankan `docker compose down`.
 
-```powershell
+## Pengembangan lokal
+
+Gunakan Python 3.11 dan Node.js 22.12+ atau 24 LTS. Dari direktori utama repositori, buat lingkungan Python dan jalankan API di terminal pertama.
+
+```sh
+python -m venv .venv
+```
+
+Aktifkan dengan `.\.venv\Scripts\Activate.ps1` di PowerShell atau `source .venv/bin/activate` di Bash. Lalu jalankan:
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m uvicorn deployment.api.main:app --host 127.0.0.1 --port 8000 --no-access-log
+```
+
+Di terminal kedua, mulai antarmuka React dari direktori utama.
+
+```sh
 cd web
 npm ci
 npm run dev
 ```
 
-Open [the web app](http://127.0.0.1:5173). Vite proxies `/api` to the local API. No `.env` is required in education mode. Optional settings are documented in `.env.example`. Existing Groq/Tavily keys are not used by v3. Self-hosted fonts; no CDN dependency at runtime.
+Buka [antarmuka pengembangan](http://127.0.0.1:5173). Vite meneruskan permintaan API ke port 8000. Opsi konfigurasi tersedia di [.env.example](.env.example).
 
-On macOS/Linux use `.venv/bin/python` instead of `.venv/Scripts/python`.
+### Pengujian
 
-## Containers
-
-```sh
-docker compose up --build
-```
-
-Open [DermaScan](http://localhost:8080). Only the web proxy is exposed, bound to loopback. The API remains on the private Compose network. Both containers use non-root users, read-only filesystems, bounded temporary filesystems and health checks. Uploads are transient, including framework multipart buffers. The default image intentionally excludes TensorFlow; do not turn model flags on without installing a compatible ML runtime.
-
-Before Internet deployment, terminate TLS at a trusted ingress, preserve request size/rate/time limits and security headers, configure resource limits and monitoring, and follow [deployment notes](docs/DEPLOYMENT.md). Do not expose the API port directly. The Compose configuration is a local deployment baseline, not a claim that public medical-launch gates have passed.
-
-## Optional image research
-
-### Existing 16-class model
-
-The old HDF5 artifact named `skin_model_best.keras` is retained locally and ignored by Git. Enable only in a dedicated local research environment:
-
-```powershell
-.venv/Scripts/python -m pip install -r requirements-ml.txt
-.venv/Scripts/python -m pip install tf-keras==2.20.1
-$env:ENABLE_LEGACY_MODEL = 'true'
-.venv/Scripts/python -m uvicorn deployment.api.main:app --host 127.0.0.1 --port 8000 --no-access-log
-```
-
-Keep the original ordered `class_names.json` beside the model. Keras 2 HDF5 loading may require `tf-keras`; the loader falls back explicitly. Startup failure is reported as model-unavailable mode. This model mixes dermoscopic and clinical images and has known split, class balance and domain limitations. Raw scores are available only as **research scores**, not diagnosis probabilities. Domain mismatch is not repaired by renormalizing scores. There is no validated skin/non-skin detector, OOD guarantee, or clinical confidence threshold.
-
-### Less training data: frozen embeddings
-
-Prepare a curated CSV with **real** patient/lesion group identifiers and fixed partitions:
-
-```csv
-image_path,label,group_id,split
-photos/a.jpg,acne,patient-a,train
-photos/b.jpg,acne,patient-b,val
-photos/c.jpg,acne,patient-c,test
-```
-
-Every partition must contain the same two or more classes. Paths are relative to the CSV. Never invent per-image patient identifiers to make checks pass. Complete manifests must be deduplicated; perceptual duplicates and source authenticity still require review.
+Jalankan tes backend dari direktori utama dengan lingkungan Python aktif.
 
 ```sh
-python -m scripts.train_compact --csv data/curated.csv --domain clinical --max-per-class 50 --output models/compact
+python -m pytest -q
 ```
 
-ImageNet backbone weights may download during training. `--max-per-class` caps only training data; validation/test sets stay untouched. Validation selects regularization; the held-out test is evaluated once. No clinical improvement is claimed until measured on representative external data. The output includes backbone, classifier, manifest and evaluation. Point `MODEL_DIR` at the operator-controlled output directory to load it. Joblib files are trusted code artifacts; never accept them from end users.
+Jalankan pemeriksaan frontend dari direktori `web/`.
 
-Original notebooks, `src/train.py` and `scripts/run_domain_eval.py` are retained as **historical experiments**, not the v3 deployment pipeline. Their old image-level split does not establish lesion-disjoint performance. See [model card](docs/MODEL_CARD.md).
-
-For an optional real-artifact compatibility check, run `python -m scripts.smoke_legacy_model` in the ML environment. It uses only a synthetic checker pattern to verify loading, shape, pixel range and finite model outputs; it does not evaluate medical accuracy.
-
-## Verify
-
-```powershell
-.venv/Scripts/python -m pytest -q
-.venv/Scripts/python -m pip check
-cd web
+```sh
 npm run format:check
 npm run build
 npx playwright install chromium
 npm test
 ```
 
-Browser tests cover desktop and phone layouts, axe accessibility checks, layer interaction, search/filter recovery, consent, emergency guidance, analysis failure, journal create/edit/delete/export, opt-in persistence, focus restoration, and reduced motion. API tests use synthetic images and cover upload validation, missing model, unsafe-label escalation, invalid inputs, consent, rate limits, and group leakage. They do not establish clinical accuracy.
+Playwright menjalankan server uji sendiri pada port 5180. Gunakan `DERMASCAN_TEST_PORT` jika port tersebut sedang dipakai. Cakupan tes dan batas verifikasi dijelaskan di [catatan pengujian](docs/VERIFICATION.md).
 
-CI runs API and web checks. [Verification notes](docs/VERIFICATION.md) distinguish executed checks from remaining release gates.
+## Dokumentasi
 
-## Structure
+| Kebutuhan | Rujukan |
+| --- | --- |
+| Menyiapkan deployment dan proksi | [Panduan deployment](docs/DEPLOYMENT.md) |
+| Memahami model dan eksperimen | [Kartu model](docs/MODEL_CARD.md) · [Skrip pelatihan](scripts/train_compact.py) |
+| Memahami tujuan produk dan alur pengguna | [Spesifikasi produk](PRODUCT.md) · [Kontrak UX](UX-CONTRACT.md) |
+| Mengembangkan antarmuka yang konsisten | [Sistem desain](DESIGN.md) |
 
-```text
-web/                   React UI, shared primitives, browser tests
-content/education.json Source-linked education shared by API and UI
-src/dermascan/         Image contract, assessment policy, model adapter
-deployment/api/       FastAPI application
-deployment/web/       Hardened same-origin reverse proxy
-scripts/train_compact.py  Group-aware, small-data research training
-tests/                 API/image/manifest tests
-docs/                  Model card, deployment and verification
-```
+## Bantuan dan kontribusi
 
-Product and design decisions: [PRODUCT.md](PRODUCT.md), [DESIGN.md](DESIGN.md), [UX-CONTRACT.md](UX-CONTRACT.md).
-
-## Clinical and privacy boundaries
-
-For adult education. No diagnosis, medication prescription, severity scoring, or cure claim. Severe symptoms require direct medical attention; a negative or unavailable image result must never delay care. Educational summaries have source links but are not yet reviewed by a DermaScan clinician. No cloud journal storage, account system, or monitoring by doctors. Browser notes are not separately encrypted and can be read by other users of the same browser.
-
-See [AAD skin care basics](https://www.aad.org/public/everyday-care/skin-care-basics), [NHS serious skin reactions](https://www.nhs.uk/conditions/stevens-johnson-syndrome/), and [the project model card](docs/MODEL_CARD.md).
+Repositori ini dikelola oleh [@gege010](https://github.com/gege010). Untuk melaporkan masalah, sertakan langkah reproduksi, hasil yang diharapkan, serta versi browser atau lingkungan yang digunakan. Gunakan data sintetis untuk contoh dan tangkapan layar agar informasi kesehatan pribadi tetap terlindungi. [Buka GitHub Issues](https://github.com/gege010/DermaScan/issues).

@@ -135,20 +135,28 @@ export default function Scan() {
     body.set('symptoms', JSON.stringify(draft.symptoms));
     body.set('duration', draft.duration);
     body.set('area', draft.area);
-    if (draft.file) body.set('file', draft.file);
+    if (draft.file && !urgent && !review) body.set('file', draft.file);
     try {
       const response = await fetch('/api/v1/analyze', {
         method: 'POST',
         body,
         signal: abort.signal,
       });
-      const data = await response.json();
-      if (!response.ok)
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
         throw new Error(
-          typeof data.detail === 'string'
+          typeof data?.detail === 'string'
             ? data.detail
-            : 'Data belum lengkap. Periksa pilihanmu dan coba lagi.',
+            : response.status === 429
+              ? 'Terlalu banyak analisis. Coba lagi dalam satu menit.'
+              : response.status === 413
+                ? 'Foto maksimal 10 MB. Pilih foto yang lebih kecil.'
+                : 'Layanan analisis belum berhasil merespons. Coba lagi sebentar.',
         );
+      }
+      const data = await response.json().catch(() => {
+        throw new Error('Respons analisis tidak dapat dibaca. Coba lagi sebentar.');
+      });
       if (!abort.signal.aborted) setResult(data as Assessment);
     } catch (cause) {
       if (abort.signal.aborted && abort.signal.reason !== 'timeout') return;
@@ -177,9 +185,8 @@ export default function Scan() {
   return (
     <div className="container page scan-page">
       <div className="page-intro">
-        <p className="eyebrow">KENALI KULIT</p>
         <h1>Mulai dari ceritamu.</h1>
-        <p>Foto memberi gambaran. Apa yang kamu rasakan memberi konteks.</p>
+        <p>Ceritakan gejalanya dulu. Tambahkan foto jika diperlukan untuk melanjutkan.</p>
       </div>
       <div className="scan-layout">
         <form noValidate onSubmit={analyze} className="scan-form" aria-busy={busy}>
@@ -187,113 +194,6 @@ export default function Scan() {
             <section className="form-section">
               <div className="form-section-heading">
                 <span className="step-number">01</span>
-                <div>
-                  <h2>Satu foto, lebih dekat.</h2>
-                  <p>Ambil bagian kulit yang ingin kamu pahami.</p>
-                </div>
-              </div>
-              <div
-                className={`upload-zone ${preview ? 'has-preview' : ''} ${dragging ? 'dragging' : ''}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (!busy) setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragging(false);
-                  if (!busy) selectFile(e.dataTransfer.files[0]);
-                }}
-              >
-                {preview ? (
-                  <>
-                    <img src={preview} alt="Pratinjau foto kulit yang dipilih" />
-                    <div className="preview-controls">
-                      <span>
-                        <FileImage size={15} />
-                        {draft.file?.name}
-                      </span>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        onClick={() => {
-                          change({ file: null });
-                          if (input.current) input.current.value = '';
-                        }}
-                        aria-label="Hapus foto"
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span className="upload-symbol">
-                      <ScanFrame />
-                    </span>
-                    <h3>Ruang untuk foto kulitmu</h3>
-                    <p>Letakkan foto di sini, atau pilih dari perangkat.</p>
-                  </>
-                )}
-                <label
-                  className={`button ${preview ? 'upload-replace' : 'secondary'}`}
-                  htmlFor="skin-photo"
-                >
-                  <Upload size={16} />
-                  {preview ? 'Ganti foto' : 'Pilih foto'}
-                </label>
-                <input
-                  ref={input}
-                  id="skin-photo"
-                  className="visually-hidden file-input"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  aria-invalid={!!fileError}
-                  aria-describedby="photo-help photo-error"
-                  onChange={(e) => selectFile(e.target.files?.[0])}
-                />
-                {!preview && (
-                  <span className="upload-format">JPG, PNG, WebP · Maks. 10 MB · Maks. 20 MP</span>
-                )}
-              </div>
-              <p id="photo-error" className="field-error" role={fileError ? 'alert' : undefined}>
-                {fileError}
-              </p>
-              <p id="photo-help" className="field-help">
-                <Camera size={15} />
-                Cahaya alami, tanpa filter, fokus pada area kulit. Hindari identitas pribadi di
-                foto.
-              </p>
-              <fieldset className="choice-fieldset">
-                <legend>Jenis foto</legend>
-                <div className="radio-options">
-                  {[
-                    { id: 'clinical', label: 'Foto kamera biasa' },
-                    { id: 'dermoscopy', label: 'Foto dermoskopi' },
-                  ].map((v) => (
-                    <label
-                      className={`choice ${draft.imageKind === v.id ? 'selected' : ''}`}
-                      key={v.id}
-                    >
-                      <input
-                        type="radio"
-                        name="kind"
-                        value={v.id}
-                        checked={draft.imageKind === v.id}
-                        onChange={() => change({ imageKind: v.id })}
-                      />
-                      {v.label}
-                    </label>
-                  ))}
-                </div>
-                <p className="field-help">
-                  Dermoskopi diambil dengan alat pembesar khusus; bukan mode zoom kamera.
-                </p>
-              </fieldset>
-            </section>
-            <section className="form-section">
-              <div className="form-section-heading">
-                <span className="step-number">02</span>
                 <div>
                   <h2>Apa yang kamu rasakan?</h2>
                   <p>Pilih yang sesuai. Tidak apa-apa jika belum yakin.</p>
@@ -384,12 +284,119 @@ export default function Scan() {
                 </Notice>
               )}
             </section>
+            <section className="form-section" hidden={urgent || review}>
+              <div className="form-section-heading">
+                <span className="step-number">02</span>
+                <div>
+                  <h2>Tambahkan foto</h2>
+                  <p>Ambil bagian kulit yang ingin kamu pahami.</p>
+                </div>
+              </div>
+              <div
+                className={`upload-zone ${preview ? 'has-preview' : ''} ${dragging ? 'dragging' : ''}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!busy) setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  if (!busy) selectFile(e.dataTransfer.files[0]);
+                }}
+              >
+                {preview ? (
+                  <>
+                    <img src={preview} alt="Pratinjau foto kulit yang dipilih" />
+                    <div className="preview-controls">
+                      <span>
+                        <FileImage size={15} />
+                        {draft.file?.name}
+                      </span>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => {
+                          change({ file: null });
+                          if (input.current) input.current.value = '';
+                        }}
+                        aria-label="Hapus foto"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="upload-symbol">
+                      <ScanFrame />
+                    </span>
+                    <h3>Unggah foto area kulit</h3>
+                    <p>Letakkan foto di sini, atau pilih dari perangkat.</p>
+                  </>
+                )}
+                <label
+                  className={`button ${preview ? 'upload-replace' : 'secondary'}`}
+                  htmlFor="skin-photo"
+                >
+                  <Upload size={16} />
+                  {preview ? 'Ganti foto' : 'Pilih foto'}
+                </label>
+                <input
+                  ref={input}
+                  id="skin-photo"
+                  className="visually-hidden file-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  aria-invalid={!!fileError}
+                  aria-describedby="photo-help photo-error"
+                  onChange={(e) => selectFile(e.target.files?.[0])}
+                />
+                {!preview && (
+                  <span className="upload-format">JPG, PNG, WebP · Maks. 10 MB · Maks. 20 MP</span>
+                )}
+              </div>
+              <p id="photo-error" className="field-error" role={fileError ? 'alert' : undefined}>
+                {fileError}
+              </p>
+              <p id="photo-help" className="field-help">
+                <Camera size={15} />
+                Cahaya alami, tanpa filter, fokus pada area kulit. Hindari identitas pribadi di
+                foto.
+              </p>
+              <fieldset className="choice-fieldset">
+                <legend>Jenis foto</legend>
+                <div className="radio-options">
+                  {[
+                    { id: 'clinical', label: 'Foto kamera biasa' },
+                    { id: 'dermoscopy', label: 'Foto dermoskopi' },
+                  ].map((v) => (
+                    <label
+                      className={`choice ${draft.imageKind === v.id ? 'selected' : ''}`}
+                      key={v.id}
+                    >
+                      <input
+                        type="radio"
+                        name="kind"
+                        value={v.id}
+                        checked={draft.imageKind === v.id}
+                        onChange={() => change({ imageKind: v.id })}
+                      />
+                      {v.label}
+                    </label>
+                  ))}
+                </div>
+                <p className="field-help">
+                  Dermoskopi diambil dengan alat pembesar khusus; bukan mode zoom kamera.
+                </p>
+              </fieldset>
+            </section>
             <section className="form-section consent-section">
               <div className="form-section-heading">
-                <span className="step-number">03</span>
+                <span className="step-number">{urgent || review ? '02' : '03'}</span>
                 <div>
-                  <h2>Lanjutkan dengan sadar.</h2>
-                  <p>Pahami bagaimana fotomu digunakan.</p>
+                  <h2>Tinjau persetujuan</h2>
+                  <p>Baca cara data ini diproses sebelum melanjutkan.</p>
                 </div>
               </div>
               <label className="check-row consent">
@@ -405,9 +412,11 @@ export default function Scan() {
                   }}
                 />
                 <span>
-                  Saya setuju foto diproses untuk analisis ini. Saya memahami bahwa hasilnya
-                  bersifat edukatif, belum tervalidasi klinis, dan bukan diagnosis dokter.{' '}
-                  <Link to="/pendekatan">Baca kemampuan & privasi.</Link>
+                  {urgent || review
+                    ? 'Saya setuju pilihan gejala diproses untuk menampilkan panduan. Foto tidak dikirim.'
+                    : 'Saya setuju foto dan pilihan gejala diproses untuk analisis ini.'}{' '}
+                  Saya memahami bahwa hasilnya bersifat edukatif, belum tervalidasi klinis, dan
+                  bukan diagnosis dokter. <Link to="/pendekatan">Baca kemampuan & privasi.</Link>
                 </span>
               </label>
               <p id="consent-error" className="field-error">
@@ -430,7 +439,11 @@ export default function Scan() {
           </fieldset>
           {busy && (
             <div className="busy-state" role="status">
-              <p>Memeriksa foto dan menyiapkan panduan…</p>
+              <p>
+                {urgent || review
+                  ? 'Menyiapkan panduan…'
+                  : 'Memeriksa foto dan menyiapkan panduan…'}
+              </p>
               <button
                 type="button"
                 className="text-button"

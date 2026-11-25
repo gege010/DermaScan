@@ -36,3 +36,20 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm test
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up --build --wait --wait-timeout 120
+      - name: Verify the web proxy and education API
+        run: |
+          curl --fail --silent --show-error http://127.0.0.1:8080/analisis | grep -q 'id="root"'
+          curl --fail --silent --show-error http://127.0.0.1:8080/ready | jq -e '.status == "ready" and .mode == "unavailable"'
+          curl --fail --silent --show-error \
+            -F 'consent=true' \
+            -F 'file=@web/tests/synthetic.png' \
+            http://127.0.0.1:8080/api/v1/analyze | jq -e '.assessment.status == "unsupported"'
+      - if: failure()
+        run: docker compose logs --no-color
+      - if: always()
+        run: docker compose down

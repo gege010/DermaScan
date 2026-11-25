@@ -6,13 +6,16 @@ import { Link } from 'react-router-dom';
 export function Brand() {
   return (
     <Link className="brand" to="/" aria-label="DermaScan beranda">
-      <span className="brand-mark" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-        <i />
-      </span>
-      dermascan<span className="brand-period">.</span>
+      <svg className="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M3 11 16 4l13 7-13 7L3 11Z" fill="currentColor" />
+        <path
+          d="m3 17 13 7 13-7M3 23l13 7 13-7"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+      </svg>
+      DermaScan<span className="brand-period">.</span>
     </Link>
   );
 }

@@ -107,12 +107,12 @@ export default function SkinStudy({ compact = false }: { compact?: boolean }) {
         <path
           d="M456 112h58v-40M496 224h46M454 354h65v45"
           fill="none"
-          stroke="#627988"
+          stroke="var(--diagram-ink, #627988)"
           strokeWidth=".8"
         />
-        <circle cx="456" cy="112" r="3" fill="#203b53" />
-        <circle cx="496" cy="224" r="3" fill="#203b53" />
-        <circle cx="454" cy="354" r="3" fill="#203b53" />
+        <circle cx="456" cy="112" r="3" fill="var(--diagram-ink, #203b53)" />
+        <circle cx="496" cy="224" r="3" fill="var(--diagram-ink, #203b53)" />
+        <circle cx="454" cy="354" r="3" fill="var(--diagram-ink, #203b53)" />
         <text x="519" y="65" className="diagram-number">
           01
         </text>
