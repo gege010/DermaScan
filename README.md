@@ -1,23 +1,23 @@
 # DermaScan
 
-[![Verifikasi DermaScan](https://github.com/gege010/DermaScan/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gege010/DermaScan/actions/workflows/ci.yml)
+[![Verify DermaScan](https://github.com/gege010/DermaScan/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gege010/DermaScan/actions/workflows/ci.yml)
 
-DermaScan adalah aplikasi edukasi kulit berbahasa Indonesia untuk orang dewasa. Pengguna dapat mencatat gejala, menambahkan foto, membaca panduan dermatologi beserta sumbernya, dan menyiapkan riwayat perubahan kulit untuk konsultasi.
+DermaScan helps Indonesian-speaking adults understand and track skin concerns. Users can describe symptoms, add an optional photo, read dermatology guides with links to their sources, and keep a journal of changes to discuss at a medical appointment.
 
-![Beranda DermaScan dengan tombol mulai analisis dan atlas lapisan kulit interaktif](docs/images/beranda.png)
+![DermaScan home page with a button to start an assessment and an interactive atlas of the skin layers](docs/images/beranda.png)
 
-## Fitur dan privasi
+## Features and privacy
 
-- **Analisis keluhan.** Gejala menjadi titik awal dan foto bersifat opsional. Aplikasi mengutamakan arahan untuk gejala serius dan menjelaskan saat foto belum bisa dinilai. Mode edukasi berjalan tanpa model, TensorFlow, atau kunci API.
-- **Atlas dan panduan.** Jelajahi tiga lapisan kulit, cari artikel berdasarkan topik atau kategori, lalu buka sumber aslinya.
-- **Jurnal pribadi.** Buat, sunting, ekspor, dan hapus catatan. Secara default catatan hanya bertahan selama sesi. Jika penyimpanan lokal diaktifkan, orang yang memakai profil browser yang sama dapat membacanya.
-- **Pemrosesan foto.** API memproses unggahan sementara tanpa menyimpannya sebagai arsip atau mengirimkannya ke penyedia AI eksternal.
+- **Symptom assessment.** The app prioritizes guidance for serious symptoms and explains when it cannot assess a photo. Education mode runs without a model, TensorFlow, or API keys.
+- **Skin atlas and guides.** Explore three layers of the skin, search articles by topic, filter by category, and follow links to the original sources.
+- **Personal journal.** Create, edit, export, and delete entries. Entries last for the current session by default. If you enable local storage, anyone using the same browser profile can read them.
+- **Photo handling.** The API processes uploaded photos temporarily. It does not archive them or send them to external AI providers.
 
-DermaScan ditujukan untuk edukasi dan riset. Model opsional belum divalidasi untuk diagnosis klinis. Rincian data, evaluasi, dan keterbatasan tersedia di [kartu model](docs/MODEL_CARD.md).
+DermaScan is intended for education and research. The optional model has not been validated for clinical diagnosis. For details on its training data, evaluation, and limitations, see the [model card](docs/MODEL_CARD.md).
 
-## Mulai dengan Docker
+## Quick start with Docker
 
-Siapkan Git dan Docker dengan plugin Compose, lalu jalankan dari terminal.
+Install Git and Docker with the Compose plugin, then run the following commands.
 
 ```sh
 git clone https://github.com/gege010/DermaScan.git
@@ -25,24 +25,24 @@ cd DermaScan
 docker compose up --build --wait
 ```
 
-Buka [aplikasi lokal](http://127.0.0.1:8080). Instalasi awal memakai mode edukasi tanpa konfigurasi tambahan. Jika analisis gagal dimuat, periksa [kesiapan API](http://127.0.0.1:8080/ready) dan jalankan `docker compose logs api web`. Untuk menghentikan aplikasi, jalankan `docker compose down`.
+Open the [local app](http://127.0.0.1:8080). The default installation runs in education mode without additional configuration. If assessments fail to load, check the [API readiness endpoint](http://127.0.0.1:8080/ready) and run `docker compose logs api web`. To stop the app, run `docker compose down`.
 
-## Pengembangan lokal
+## Local development
 
-Gunakan Python 3.11 dan Node.js 22.12+ atau 24 LTS. Dari direktori utama repositori, buat lingkungan Python dan jalankan API di terminal pertama.
+Use Python 3.11 and Node.js 22.12+ or 24 LTS. In the first terminal, create a Python environment from the repository root.
 
 ```sh
 python -m venv .venv
 ```
 
-Aktifkan dengan `.\.venv\Scripts\Activate.ps1` di PowerShell atau `source .venv/bin/activate` di Bash. Lalu jalankan:
+Activate it with `.\.venv\Scripts\Activate.ps1` in PowerShell or `source .venv/bin/activate` in Bash. Then install the dependencies and start the API.
 
 ```sh
 python -m pip install -r requirements-dev.txt
 python -m uvicorn deployment.api.main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
-Di terminal kedua, mulai antarmuka React dari direktori utama.
+In a second terminal, start the React app from the repository root.
 
 ```sh
 cd web
@@ -50,17 +50,17 @@ npm ci
 npm run dev
 ```
 
-Buka [antarmuka pengembangan](http://127.0.0.1:5173). Vite meneruskan permintaan API ke port 8000. Opsi konfigurasi tersedia di [.env.example](.env.example).
+Open the [development app](http://127.0.0.1:5173). Vite forwards API requests to port 8000. See the [example environment file](.env.example) for optional settings.
 
-### Pengujian
+### Testing
 
-Jalankan tes backend dari direktori utama dengan lingkungan Python aktif.
+With the Python environment active, run the backend tests from the repository root.
 
 ```sh
 python -m pytest -q
 ```
 
-Jalankan pemeriksaan frontend dari direktori `web/`.
+Run the frontend checks from the `web/` directory.
 
 ```sh
 npm run format:check
@@ -69,17 +69,17 @@ npx playwright install chromium
 npm test
 ```
 
-Playwright menjalankan server uji sendiri pada port 5180. Gunakan `DERMASCAN_TEST_PORT` jika port tersebut sedang dipakai. Cakupan tes dan batas verifikasi dijelaskan di [catatan pengujian](docs/VERIFICATION.md).
+Playwright starts its own test server on port 5180. Set `DERMASCAN_TEST_PORT` to a free port if needed. For test coverage and verification limits, see the [verification notes](docs/VERIFICATION.md).
 
-## Dokumentasi
+## Documentation
 
-| Kebutuhan | Rujukan |
+| Topic | Resources |
 | --- | --- |
-| Menyiapkan deployment dan proksi | [Panduan deployment](docs/DEPLOYMENT.md) |
-| Memahami model dan eksperimen | [Kartu model](docs/MODEL_CARD.md) · [Skrip pelatihan](scripts/train_compact.py) |
-| Memahami tujuan produk dan alur pengguna | [Spesifikasi produk](PRODUCT.md) · [Kontrak UX](UX-CONTRACT.md) |
-| Mengembangkan antarmuka yang konsisten | [Sistem desain](DESIGN.md) |
+| Deployment and reverse proxy | [Deployment guide](docs/DEPLOYMENT.md) |
+| Model evaluation and experiments | [Model card](docs/MODEL_CARD.md) · [Training script](scripts/train_compact.py) |
+| Product goals and user flows | [Product specification](PRODUCT.md) · [UX contract](UX-CONTRACT.md) |
+| Interface design | [Design system](DESIGN.md) |
 
-## Bantuan dan kontribusi
+## Support and contributions
 
-Repositori ini dikelola oleh [@gege010](https://github.com/gege010). Untuk melaporkan masalah, sertakan langkah reproduksi, hasil yang diharapkan, serta versi browser atau lingkungan yang digunakan. Gunakan data sintetis untuk contoh dan tangkapan layar agar informasi kesehatan pribadi tetap terlindungi. [Buka GitHub Issues](https://github.com/gege010/DermaScan/issues).
+DermaScan is maintained by [@gege010](https://github.com/gege010). To report a problem, include the steps to reproduce it, what you expected to happen, and your browser or runtime version. Use synthetic data in examples and screenshots to protect personal health information. [Open a GitHub issue](https://github.com/gege010/DermaScan/issues).
